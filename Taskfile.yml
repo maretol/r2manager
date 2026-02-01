@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+
+version: '3'
+
+vars:
+  GREETING: Hello, world!
+
+tasks:
+  default:
+    desc: Print a greeting message
+    cmds:
+      - echo "{{.GREETING}}"
+    silent: true
+  build-backend:
+    desc: build backend
+    cmds:
+      - go build -o ./tmp/backend ./src/backend/main.go
+  run-backend:
+    dotenv: ['.env']
+    cmds:
+      - go run ./src/backend/main.go
