@@ -17,5 +17,6 @@ tasks:
       - go build -o ./tmp/backend ./src/backend/main.go
   run-backend:
     dotenv: ['.env']
+    dir: ./src/backend/
     cmds:
-      - go run ./src/backend/main.go
+      - go run main.go

@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -21,12 +22,20 @@ type CacheRepository struct {
 	ttl      time.Duration
 }
 
+var (
+	once sync.Once
+	repo *CacheRepository
+)
+
 func NewCacheRepository(db *sql.DB, cacheDir string, ttl time.Duration) *CacheRepository {
-	return &CacheRepository{
-		db:       db,
-		cacheDir: cacheDir,
-		ttl:      ttl,
-	}
+	once.Do(func() {
+		repo = &CacheRepository{
+			db:       db,
+			cacheDir: cacheDir,
+			ttl:      ttl,
+		}
+	})
+	return repo
 }
 
 func (r *CacheRepository) Lookup(ctx context.Context, bucketName, objectKey string) (*domain.CacheEntry, error) {

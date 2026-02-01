@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	appconfig "r2manager/config"
+	"r2manager/di"
 	"r2manager/infrastructure"
 	"r2manager/router"
 )
@@ -39,10 +40,12 @@ func main() {
 	defer db.Close()
 
 	// DI wiring
-	h := wireHandlers(s3Client, db, cacheCfg)
+	bh := di.CreateBucketsHandler(s3Client)
+	oh := di.CreateObjectsHandler(s3Client, db, cacheCfg)
+	ch := di.CreateContentHandler(s3Client, db, cacheCfg)
 
 	// Start server
-	r := router.NewRouter(h.buckets, h.objects, h.content)
+	r := router.NewRouter(bh, oh, ch)
 	if err := r.Run(":8080"); err != nil {
 		log.Fatalf("failed to start server: %v", err)
 	}
