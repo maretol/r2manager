@@ -1,6 +1,6 @@
 module r2manager
 
-go 1.24.2
+go 1.24.12
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.41.1
