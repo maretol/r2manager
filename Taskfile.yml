@@ -20,3 +20,7 @@ tasks:
     dir: ./src/backend/
     cmds:
       - go run main.go
+  up:
+    dir: .
+    cmds:
+      - docker compose up
