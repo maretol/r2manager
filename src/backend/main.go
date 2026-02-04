@@ -9,6 +9,7 @@ import (
 	appconfig "r2manager/config"
 	"r2manager/di"
 	"r2manager/infrastructure"
+	"r2manager/repository"
 	"r2manager/router"
 )
 
@@ -39,9 +40,12 @@ func main() {
 	}
 	defer db.Close()
 
+	// List cache (shared between buckets and objects)
+	listCache := repository.NewListCacheRepository()
+
 	// DI wiring
-	bh := di.CreateBucketsHandler(s3Client)
-	oh := di.CreateObjectsHandler(s3Client, db, cacheCfg)
+	bh := di.CreateBucketsHandler(s3Client, listCache)
+	oh := di.CreateObjectsHandler(s3Client, db, cacheCfg, listCache)
 	ch := di.CreateContentHandler(s3Client, db, cacheCfg)
 
 	// Start server

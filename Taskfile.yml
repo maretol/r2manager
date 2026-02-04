@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://taskfile.dev/schema.json
 
-version: '3'
+version: "3"
 
 vars:
   GREETING: Hello, world!
@@ -16,10 +16,15 @@ tasks:
     cmds:
       - go build -o ./tmp/backend ./src/backend/main.go
   run-backend:
-    dotenv: ['.env']
+    dotenv: [".env"]
     dir: ./src/backend/
     cmds:
       - go run main.go
+  run-frontend:
+    dotenv: [".env"]
+    dir: ./src/frontend/
+    cmds:
+      - npm run dev
   up:
     dir: .
     cmds:

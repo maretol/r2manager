@@ -23,10 +23,15 @@ func (oh *ObjectsHandler) GetObjects(ctx *gin.Context) {
 		return
 	}
 
-	objects, err := oh.service.GetObjects(ctx.Request.Context(), bucketName)
+	params := serviceif.ListObjectsParams{
+		Prefix:    ctx.Query("prefix"),
+		Delimiter: ctx.Query("delimiter"),
+	}
+
+	result, err := oh.service.GetObjects(ctx.Request.Context(), bucketName, params)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	ctx.JSON(http.StatusOK, gin.H{"objects": objects})
+	ctx.JSON(http.StatusOK, result)
 }
