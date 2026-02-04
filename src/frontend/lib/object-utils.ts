@@ -37,6 +37,7 @@ export function parseObjectsToDisplay(objects: R2Object[], prefix: string): Disp
         isFolder: false,
         size: obj.size,
         lastModified: obj.last_modified,
+        etag: obj.etag,
       })
     }
   }

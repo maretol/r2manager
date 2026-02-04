@@ -1,7 +1,7 @@
 import { fetchObjects } from '@/lib/api'
 import { parseObjectsToDisplay } from '@/lib/object-utils'
 import { BreadcrumbNav } from '@/components/breadcrumb-nav'
-import { ObjectTable } from '@/components/object-table'
+import { BucketContent } from '@/components/bucket-content'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 
 type BucketPageProps = {
@@ -19,12 +19,12 @@ export default async function BucketPage({ params, searchParams }: BucketPagePro
 
   return (
     <div className="flex flex-col gap-4 p-6">
-      <Card className="w-full max-w-5xl">
+      <Card className="w-full">
         <CardHeader className="pb-3">
           <BreadcrumbNav bucketName={bucketName} prefix={prefix} />
         </CardHeader>
         <CardContent>
-          <ObjectTable objects={displayObjects} bucketName={bucketName} />
+          <BucketContent objects={displayObjects} bucketName={bucketName} />
         </CardContent>
       </Card>
     </div>
