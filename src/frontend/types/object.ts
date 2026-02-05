@@ -19,4 +19,5 @@ export type DisplayObject = {
   isFolder: boolean
   size?: number
   lastModified?: string
+  etag?: string
 }
