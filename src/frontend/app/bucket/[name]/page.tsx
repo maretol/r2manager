@@ -6,16 +6,19 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card'
 
 type BucketPageProps = {
   params: Promise<{ name: string }>
-  searchParams: Promise<{ prefix?: string }>
+  searchParams: Promise<{ prefix?: string; selected?: string }>
 }
 
 export default async function BucketPage({ params, searchParams }: BucketPageProps) {
   const { name } = await params
-  const { prefix = '' } = await searchParams
+  const { prefix = '', selected } = await searchParams
   const bucketName = decodeURIComponent(name)
 
   const response = await fetchObjects(bucketName, prefix)
   const displayObjects = parseObjectsToDisplay(response.objects, prefix)
+
+  const selectedObject = selected ? (displayObjects.find((obj) => obj.key === selected) ?? null) : null
+  const selectedNotFound = !!selected && !selectedObject
 
   return (
     <div className="flex flex-col gap-4 p-6">
@@ -24,7 +27,13 @@ export default async function BucketPage({ params, searchParams }: BucketPagePro
           <BreadcrumbNav bucketName={bucketName} prefix={prefix} />
         </CardHeader>
         <CardContent>
-          <BucketContent objects={displayObjects} bucketName={bucketName} />
+          <BucketContent
+            objects={displayObjects}
+            bucketName={bucketName}
+            prefix={prefix}
+            selectedObject={selectedObject}
+            selectedNotFound={selectedNotFound}
+          />
         </CardContent>
       </Card>
     </div>

@@ -1,17 +1,19 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Download, Copy, Link, X, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import type { DisplayObject } from '@/types/object'
 import { formatFileSize, formatDate } from '@/lib/object-utils'
 import { getPublicUrl } from '@/lib/settings'
+import Image from 'next/image'
 
 type ObjectDetailPanelProps = {
   object: DisplayObject
   bucketName: string
-  onClose: () => void
+  prefix: string
 }
 
 const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.bmp', '.ico']
@@ -22,7 +24,7 @@ function isImageFile(filename: string): boolean {
 }
 
 function getObjectUrl(bucketName: string, key: string): string {
-  return `http://localhost:3000/api/v1/buckets/${encodeURIComponent(bucketName)}/objects/${encodeURIComponent(key)}`
+  return `http://localhost:3000/api/v1/buckets/${encodeURIComponent(bucketName)}/content/${encodeURIComponent(key)}`
 }
 
 function getPublicObjectUrl(publicBaseUrl: string, key: string): string {
@@ -30,7 +32,8 @@ function getPublicObjectUrl(publicBaseUrl: string, key: string): string {
   return `${baseUrl}/${key}`
 }
 
-export function ObjectDetailPanel({ object, bucketName, onClose }: ObjectDetailPanelProps) {
+export function ObjectDetailPanel({ object, bucketName, prefix }: ObjectDetailPanelProps) {
+  const router = useRouter()
   const [copiedUrl, setCopiedUrl] = useState<'internal' | 'public' | null>(null)
   const [imageError, setImageError] = useState(false)
 
@@ -39,6 +42,14 @@ export function ObjectDetailPanel({ object, bucketName, onClose }: ObjectDetailP
   const isImage = isImageFile(object.name)
   const objectUrl = getObjectUrl(bucketName, object.key)
   const publicObjectUrl = hasPublicUrl ? getPublicObjectUrl(publicUrl, object.key) : null
+
+  const handleClose = () => {
+    const basePath = `/bucket/${encodeURIComponent(bucketName)}`
+    const params = new URLSearchParams()
+    if (prefix) params.set('prefix', prefix)
+    const query = params.toString()
+    router.push(`${basePath}${query ? `?${query}` : ''}`)
+  }
 
   const handleCopyUrl = async (url: string, type: 'internal' | 'public') => {
     try {
@@ -63,7 +74,7 @@ export function ObjectDetailPanel({ object, bucketName, onClose }: ObjectDetailP
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between p-4 border-b">
         <h3 className="font-semibold truncate">Details</h3>
-        <Button variant="ghost" size="icon-xs" onClick={onClose}>
+        <Button variant="ghost" size="icon-xs" onClick={handleClose}>
           <X className="size-4" />
         </Button>
       </div>
@@ -71,11 +82,13 @@ export function ObjectDetailPanel({ object, bucketName, onClose }: ObjectDetailP
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {isImage && !imageError && (
           <div className="rounded-lg border bg-muted/30 p-2">
-            <img
-              src={publicObjectUrl || objectUrl}
+            <Image
+              src={objectUrl}
               alt={object.name}
               className="w-full h-auto max-h-48 object-contain rounded"
               onError={() => setImageError(true)}
+              width={'100'}
+              height={'200'}
             />
           </div>
         )}
@@ -91,7 +104,7 @@ export function ObjectDetailPanel({ object, bucketName, onClose }: ObjectDetailP
         <Separator />
 
         <div className="space-y-2">
-          <Button variant="outline" size="sm" className="w-full justify-start" onClick={handleDownload}>
+          <Button variant="outline" size="sm" className="w-full justify-start cursor-pointer" onClick={handleDownload}>
             <Download className="size-4" />
             Download
           </Button>
@@ -99,7 +112,7 @@ export function ObjectDetailPanel({ object, bucketName, onClose }: ObjectDetailP
           <Button
             variant="outline"
             size="sm"
-            className="w-full justify-start"
+            className="w-full justify-start cursor-pointer"
             onClick={() => handleCopyUrl(objectUrl, 'internal')}
           >
             {copiedUrl === 'internal' ? <Check className="size-4" /> : <Copy className="size-4" />}
@@ -110,7 +123,7 @@ export function ObjectDetailPanel({ object, bucketName, onClose }: ObjectDetailP
             <Button
               variant="outline"
               size="sm"
-              className="w-full justify-start"
+              className="w-full justify-start cursor-pointer"
               onClick={() => handleCopyUrl(publicObjectUrl, 'public')}
             >
               {copiedUrl === 'public' ? <Check className="size-4" /> : <Link className="size-4" />}

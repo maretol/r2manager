@@ -1,5 +1,3 @@
-'use client'
-
 import Link from 'next/link'
 import { ChevronRightIcon, HomeIcon } from 'lucide-react'
 import { parsePrefixToBreadcrumbs } from '@/lib/object-utils'

@@ -69,13 +69,26 @@ export function formatFileSize(bytes: number): string {
  */
 export function formatDate(dateString: string): string {
   const date = new Date(dateString)
-  return date.toLocaleDateString('ja-JP', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+  const isUTC = dateString.endsWith('Z') || dateString.endsWith('+00:00') || dateString.endsWith('+0000')
+
+  if (isUTC) {
+    // UTCの場合、+9時間でJSTに補正
+    const jstDate = new Date(date.getTime() + 9 * 60 * 60 * 1000)
+    const year = jstDate.getUTCFullYear()
+    const month = String(jstDate.getUTCMonth() + 1).padStart(2, '0')
+    const day = String(jstDate.getUTCDate()).padStart(2, '0')
+    const hour = String(jstDate.getUTCHours()).padStart(2, '0')
+    const minute = String(jstDate.getUTCMinutes()).padStart(2, '0')
+    return `${year}/${month}/${day} ${hour}:${minute}`
+  }
+
+  // UTC以外の場合はそのままフォーマット
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hour = String(date.getHours()).padStart(2, '0')
+  const minute = String(date.getMinutes()).padStart(2, '0')
+  return `${year}/${month}/${day} ${hour}:${minute}`
 }
 
 /**
