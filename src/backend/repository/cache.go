@@ -182,3 +182,101 @@ func (r *CacheRepository) cachePath(bucketName, objectKey string) string {
 	filename := fmt.Sprintf("%x", hash)
 	return filepath.Join(r.cacheDir, bucketName, filename)
 }
+
+func (r *CacheRepository) ClearAll(ctx context.Context) (int64, error) {
+	rows, err := r.db.QueryContext(ctx, `SELECT cache_path FROM cache_entries`)
+	if err != nil {
+		return 0, errors.Wrap(err, "failed to query cache entries")
+	}
+	defer rows.Close()
+
+	var paths []string
+	for rows.Next() {
+		var path string
+		if err := rows.Scan(&path); err != nil {
+			return 0, errors.Wrap(err, "failed to scan cache path")
+		}
+		paths = append(paths, path)
+	}
+	if err := rows.Err(); err != nil {
+		return 0, errors.Wrap(err, "failed to iterate cache entries")
+	}
+
+	result, err := r.db.ExecContext(ctx, `DELETE FROM cache_entries`)
+	if err != nil {
+		return 0, errors.Wrap(err, "failed to delete all cache entries")
+	}
+
+	for _, path := range paths {
+		os.Remove(path)
+	}
+
+	affected, _ := result.RowsAffected()
+	return affected, nil
+}
+
+func (r *CacheRepository) ClearByBucket(ctx context.Context, bucketName string) (int64, error) {
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT cache_path FROM cache_entries WHERE bucket_name = ?`,
+		bucketName,
+	)
+	if err != nil {
+		return 0, errors.Wrap(err, "failed to query cache entries")
+	}
+	defer rows.Close()
+
+	var paths []string
+	for rows.Next() {
+		var path string
+		if err := rows.Scan(&path); err != nil {
+			return 0, errors.Wrap(err, "failed to scan cache path")
+		}
+		paths = append(paths, path)
+	}
+	if err := rows.Err(); err != nil {
+		return 0, errors.Wrap(err, "failed to iterate cache entries")
+	}
+
+	result, err := r.db.ExecContext(ctx,
+		`DELETE FROM cache_entries WHERE bucket_name = ?`,
+		bucketName,
+	)
+	if err != nil {
+		return 0, errors.Wrap(err, "failed to delete cache entries")
+	}
+
+	for _, path := range paths {
+		os.Remove(path)
+	}
+
+	affected, _ := result.RowsAffected()
+	return affected, nil
+}
+
+func (r *CacheRepository) ClearByKey(ctx context.Context, bucketName, objectKey string) (int64, error) {
+	row := r.db.QueryRowContext(ctx,
+		`SELECT cache_path FROM cache_entries WHERE bucket_name = ? AND object_key = ?`,
+		bucketName, objectKey,
+	)
+
+	var cachePath string
+	if err := row.Scan(&cachePath); err != nil {
+		if err == sql.ErrNoRows {
+			return 0, nil
+		}
+		return 0, errors.Wrap(err, "failed to query cache entry")
+	}
+
+	result, err := r.db.ExecContext(ctx,
+		`DELETE FROM cache_entries WHERE bucket_name = ? AND object_key = ?`,
+		bucketName, objectKey,
+	)
+	if err != nil {
+		return 0, errors.Wrap(err, "failed to delete cache entry")
+	}
+
+	os.Remove(cachePath)
+
+	affected, _ := result.RowsAffected()
+	return affected, nil
+}

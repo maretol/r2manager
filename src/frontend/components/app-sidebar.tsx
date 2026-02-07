@@ -13,6 +13,7 @@ import {
   SidebarMenuButton,
 } from './ui/sidebar'
 import { BucketMenuItem } from './bucket-menu-item'
+import { RefreshBucketsButton } from './refresh-buckets-button'
 
 export async function AppSideBar() {
   const buckets = await fetchBuckets()
@@ -26,7 +27,10 @@ export async function AppSideBar() {
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Buckets</SidebarGroupLabel>
+          <div className="flex items-center justify-between pr-2">
+            <SidebarGroupLabel>Buckets</SidebarGroupLabel>
+            <RefreshBucketsButton />
+          </div>
           <SidebarMenu>
             {buckets.map((bucket) => (
               <BucketMenuItem key={bucket.name} bucketName={bucket.name} />

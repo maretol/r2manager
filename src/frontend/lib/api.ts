@@ -56,3 +56,55 @@ export async function fetchObjects(bucketName: string, prefix: string = ''): Pro
     next_continuation_token: data.next_continuation_token,
   }
 }
+
+type ClearCacheResponse = {
+  message: string
+  deleted?: number
+}
+
+export async function clearBucketsCache(): Promise<ClearCacheResponse> {
+  const response = await fetch('http://localhost:3000/api/v1/cache/api?type=buckets', {
+    method: 'DELETE',
+  })
+
+  if (!response.ok) {
+    const errorData: ErrorResponse = await response.json()
+    throw new Error(errorData.error || 'Failed to clear buckets cache')
+  }
+
+  return response.json()
+}
+
+export async function clearObjectsCache(bucketName: string): Promise<ClearCacheResponse> {
+  const response = await fetch(
+    `http://localhost:3000/api/v1/cache/api?type=objects&bucket=${encodeURIComponent(bucketName)}`,
+    {
+      method: 'DELETE',
+    }
+  )
+
+  if (!response.ok) {
+    const errorData: ErrorResponse = await response.json()
+    throw new Error(errorData.error || 'Failed to clear objects cache')
+  }
+
+  return response.json()
+}
+
+export async function clearContentCache(bucketName: string, objectKey: string): Promise<ClearCacheResponse> {
+  const params = new URLSearchParams({
+    bucket: bucketName,
+    key: objectKey,
+  })
+
+  const response = await fetch(`http://localhost:3000/api/v1/cache/content?${params.toString()}`, {
+    method: 'DELETE',
+  })
+
+  if (!response.ok) {
+    const errorData: ErrorResponse = await response.json()
+    throw new Error(errorData.error || 'Failed to clear content cache')
+  }
+
+  return response.json()
+}

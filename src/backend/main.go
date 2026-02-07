@@ -47,9 +47,10 @@ func main() {
 	bh := di.CreateBucketsHandler(s3Client, listCache)
 	oh := di.CreateObjectsHandler(s3Client, db, cacheCfg, listCache)
 	ch := di.CreateContentHandler(s3Client, db, cacheCfg)
+	cah := di.CreateCacheHandler(db, cacheCfg, listCache)
 
 	// Start server
-	r := router.NewRouter(bh, oh, ch)
+	r := router.NewRouter(bh, oh, ch, cah)
 	if err := r.Run(":8080"); err != nil {
 		log.Fatalf("failed to start server: %v", err)
 	}

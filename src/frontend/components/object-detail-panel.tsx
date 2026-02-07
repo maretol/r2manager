@@ -2,12 +2,13 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Download, Copy, Link, X, Check } from 'lucide-react'
+import { Download, Copy, Link, X, Check, Trash2, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import type { DisplayObject } from '@/types/object'
 import { formatFileSize, formatDate } from '@/lib/object-utils'
 import { getPublicUrl } from '@/lib/settings'
+import { clearContentCache } from '@/lib/api'
 import Image from 'next/image'
 
 type ObjectDetailPanelProps = {
@@ -36,6 +37,8 @@ export function ObjectDetailPanel({ object, bucketName, prefix }: ObjectDetailPa
   const router = useRouter()
   const [copiedUrl, setCopiedUrl] = useState<'internal' | 'public' | null>(null)
   const [imageError, setImageError] = useState(false)
+  const [clearingCache, setClearingCache] = useState(false)
+  const [cacheCleared, setCacheCleared] = useState(false)
 
   const publicUrl = getPublicUrl(bucketName)
   const hasPublicUrl = publicUrl.length > 0
@@ -68,6 +71,20 @@ export function ObjectDetailPanel({ object, bucketName, prefix }: ObjectDetailPa
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
+  }
+
+  const handleClearCache = async () => {
+    setClearingCache(true)
+    setCacheCleared(false)
+    try {
+      await clearContentCache(bucketName, object.key)
+      setCacheCleared(true)
+      setTimeout(() => setCacheCleared(false), 2000)
+    } catch (error) {
+      console.error('Failed to clear cache:', error)
+    } finally {
+      setClearingCache(false)
+    }
   }
 
   return (
@@ -130,6 +147,25 @@ export function ObjectDetailPanel({ object, bucketName, prefix }: ObjectDetailPa
               {copiedUrl === 'public' ? 'Copied!' : 'Copy Public URL'}
             </Button>
           )}
+
+          <Separator />
+
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full justify-start cursor-pointer"
+            onClick={handleClearCache}
+            disabled={clearingCache}
+          >
+            {clearingCache ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : cacheCleared ? (
+              <Check className="size-4" />
+            ) : (
+              <Trash2 className="size-4" />
+            )}
+            {cacheCleared ? 'Cache Cleared!' : 'Clear Cache'}
+          </Button>
         </div>
       </div>
     </div>

@@ -2,6 +2,7 @@ import { fetchObjects } from '@/lib/api'
 import { parseObjectsToDisplay } from '@/lib/object-utils'
 import { BreadcrumbNav } from '@/components/breadcrumb-nav'
 import { BucketContent } from '@/components/bucket-content'
+import { RefreshObjectsButton } from '@/components/refresh-objects-button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 
 type BucketPageProps = {
@@ -24,7 +25,10 @@ export default async function BucketPage({ params, searchParams }: BucketPagePro
     <div className="flex flex-col gap-4 p-6">
       <Card className="w-full">
         <CardHeader className="pb-3">
-          <BreadcrumbNav bucketName={bucketName} prefix={prefix} />
+          <div className="flex items-center gap-2">
+            <BreadcrumbNav bucketName={bucketName} prefix={prefix} />
+            <RefreshObjectsButton bucketName={bucketName} />
+          </div>
         </CardHeader>
         <CardContent>
           <BucketContent

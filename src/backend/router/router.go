@@ -9,7 +9,7 @@ import (
 	"r2manager/handler"
 )
 
-func NewRouter(bucketsHandler *handler.BucketsHandler, objectsHandler *handler.ObjectsHandler, contentHandler *handler.ContentHandler) *gin.Engine {
+func NewRouter(bucketsHandler *handler.BucketsHandler, objectsHandler *handler.ObjectsHandler, contentHandler *handler.ContentHandler, cacheHandler *handler.CacheHandler) *gin.Engine {
 	r := gin.Default()
 
 	trustedIPList := getTrustedIPList()
@@ -24,6 +24,9 @@ func NewRouter(bucketsHandler *handler.BucketsHandler, objectsHandler *handler.O
 		api.GET("/buckets", bucketsHandler.GetBuckets)
 		api.GET("/buckets/:bucketName/objects", objectsHandler.GetObjects)
 		api.GET("/buckets/:bucketName/content/*key", contentHandler.GetContent)
+
+		api.DELETE("/cache/content", cacheHandler.ClearContentCache)
+		api.DELETE("/cache/api", cacheHandler.ClearAPICache)
 	}
 
 	return r

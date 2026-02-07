@@ -74,6 +74,10 @@ func (r *ListCacheRepository) InvalidateObjects(bucketName string) {
 	}
 }
 
+func (r *ListCacheRepository) InvalidateAllObjects() {
+	r.objects.Flush()
+}
+
 func (r *ListCacheRepository) InvalidateAll() {
 	r.buckets.Flush()
 	r.objects.Flush()
