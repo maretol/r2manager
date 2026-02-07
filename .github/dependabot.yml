@@ -4,10 +4,9 @@ updates:
   - package-ecosystem: "gomod"
     directory: "/src/backend"
     schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
-      timezone: "Asia/Tokyo"
+      interval: "daily"
+    cooldown:
+      default-days: 5
     open-pull-requests-limit: 5
     reviewers:
       - "maretol"
@@ -30,10 +29,9 @@ updates:
   - package-ecosystem: "npm"
     directory: "/src/frontend"
     schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
-      timezone: "Asia/Tokyo"
+      interval: "daily"
+    cooldown:
+      default-days: 5
     open-pull-requests-limit: 5
     reviewers:
       - "maretol"
@@ -71,6 +69,8 @@ updates:
       day: "monday"
       time: "09:00"
       timezone: "Asia/Tokyo"
+    cooldown:
+      default-days: 5
     open-pull-requests-limit: 3
     reviewers:
       - "maretol"
@@ -89,6 +89,8 @@ updates:
       day: "monday"
       time: "09:00"
       timezone: "Asia/Tokyo"
+    cooldown:
+      default-days: 5
     open-pull-requests-limit: 3
     reviewers:
       - "maretol"
