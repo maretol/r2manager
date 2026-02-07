@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { SettingsIcon } from 'lucide-react'
+import { AlertCircleIcon, SettingsIcon } from 'lucide-react'
 import { fetchBuckets } from '@/lib/api'
 import {
   Sidebar,
@@ -16,7 +16,12 @@ import { BucketMenuItem } from './bucket-menu-item'
 import { RefreshBucketsButton } from './refresh-buckets-button'
 
 export async function AppSideBar() {
-  const buckets = await fetchBuckets()
+  let buckets: Awaited<ReturnType<typeof fetchBuckets>> | null = null
+  try {
+    buckets = await fetchBuckets()
+  } catch {
+    // fallback below
+  }
 
   return (
     <Sidebar>
@@ -31,11 +36,19 @@ export async function AppSideBar() {
             <SidebarGroupLabel>Buckets</SidebarGroupLabel>
             <RefreshBucketsButton />
           </div>
-          <SidebarMenu>
-            {buckets.map((bucket) => (
-              <BucketMenuItem key={bucket.name} bucketName={bucket.name} />
-            ))}
-          </SidebarMenu>
+          {buckets ? (
+            <SidebarMenu>
+              {buckets.map((bucket) => (
+                <BucketMenuItem key={bucket.name} bucketName={bucket.name} />
+              ))}
+            </SidebarMenu>
+          ) : (
+            <div className="flex flex-col items-center gap-2 px-4 py-6 text-sm text-muted-foreground">
+              <AlertCircleIcon className="size-5 text-destructive" />
+              <p className="text-center">バケット一覧の取得に失敗しました</p>
+              <p className="text-center text-xs">リロードするか、設定を確認してください</p>
+            </div>
+          )}
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>
