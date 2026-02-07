@@ -63,7 +63,7 @@ jobs:
         run: npm run build -- --debug-prerender
 
   status:
-    name: CI Status
+    name: Front CI Status
     runs-on: ubuntu-latest
     needs: [lint, build]
     if: always()
@@ -71,7 +71,7 @@ jobs:
       - name: Show status
         run: echo "status"
       - name: Check all jobs passed
-        if: ${{ needs.test.result == "failure" || needs.build.result == "failure" }}
+        if: ${{ needs.test.result == 'failure' || needs.build.result == 'failure' }}
         run: |
           echo "failure"
           exit 1
