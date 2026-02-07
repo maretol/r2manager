@@ -11,7 +11,11 @@ import (
 )
 
 func CreateContentHandler(s3Client *s3.Client, db *sql.DB, cacheCfg *appconfig.CacheConfig) *handler.ContentHandler {
-	cacheRepo := repository.NewCacheRepository(db, cacheCfg.CacheDir, cacheCfg.TTL)
+	var opts []repository.CacheOption
+	if cacheCfg.MaxCacheSize > 0 {
+		opts = append(opts, repository.WithMaxCacheSize(cacheCfg.MaxCacheSize))
+	}
+	cacheRepo := repository.NewCacheRepository(db, cacheCfg.CacheDir, cacheCfg.TTL, opts...)
 
 	contentRepo := repository.NewContentRepository(s3Client)
 	contentService := service.NewContentService(contentRepo, cacheRepo)

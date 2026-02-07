@@ -49,7 +49,11 @@ func main() {
 	ch := di.CreateContentHandler(s3Client, db, cacheCfg)
 
 	// Start background cache cleanup
-	cacheRepo := repository.NewCacheRepository(db, cacheCfg.CacheDir, cacheCfg.TTL)
+	var opts []repository.CacheOption
+	if cacheCfg.MaxCacheSize > 0 {
+		opts = append(opts, repository.WithMaxCacheSize(cacheCfg.MaxCacheSize))
+	}
+	cacheRepo := repository.NewCacheRepository(db, cacheCfg.CacheDir, cacheCfg.TTL, opts...)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	cacheRepo.StartCleanupLoop(ctx, cacheCfg.CleanupInterval)

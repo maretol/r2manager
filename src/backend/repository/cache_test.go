@@ -47,19 +47,24 @@ func setupTestDB(t *testing.T) (*sql.DB, string) {
 	return db, tmpDir
 }
 
-func newTestCacheRepo(db *sql.DB, cacheDir string, ttl time.Duration) *CacheRepository {
+func newTestCacheRepo(db *sql.DB, cacheDir string, ttl time.Duration, opts ...CacheOption) *CacheRepository {
 	// Reset singleton for each test
 	once = sync.Once{}
 	repo = nil
-	return NewCacheRepository(db, cacheDir, ttl)
+	return NewCacheRepository(db, cacheDir, ttl, opts...)
 }
 
 func insertTestEntry(t *testing.T, db *sql.DB, bucketName, objectKey, cachePath string, expiresAt time.Time) {
 	t.Helper()
+	insertTestEntryWithSize(t, db, bucketName, objectKey, cachePath, 100, expiresAt, time.Now().UTC())
+}
+
+func insertTestEntryWithSize(t *testing.T, db *sql.DB, bucketName, objectKey, cachePath string, size int64, expiresAt, cachedAt time.Time) {
+	t.Helper()
 	_, err := db.Exec(
 		`INSERT INTO cache_entries (bucket_name, object_key, content_type, size, etag, cache_path, cached_at, expires_at)
-		 VALUES (?, ?, 'text/plain', 100, 'etag1', ?, ?, ?)`,
-		bucketName, objectKey, cachePath, time.Now().UTC(), expiresAt,
+		 VALUES (?, ?, 'text/plain', ?, 'etag1', ?, ?, ?)`,
+		bucketName, objectKey, size, cachePath, cachedAt, expiresAt,
 	)
 	if err != nil {
 		t.Fatalf("failed to insert test entry: %v", err)
@@ -247,5 +252,145 @@ func TestStartCleanupLoop_StopsOnContextCancel(t *testing.T) {
 
 	if countEntries(t, db) != 1 {
 		t.Errorf("expected entry to remain after context cancel, got %d", countEntries(t, db))
+	}
+}
+
+func totalCacheSize(t *testing.T, db *sql.DB) int64 {
+	t.Helper()
+	var total int64
+	if err := db.QueryRow("SELECT COALESCE(SUM(size), 0) FROM cache_entries").Scan(&total); err != nil {
+		t.Fatalf("failed to get total cache size: %v", err)
+	}
+	return total
+}
+
+func TestEvict_RemovesOldestEntriesWhenOverLimit(t *testing.T) {
+	db, tmpDir := setupTestDB(t)
+	defer db.Close()
+
+	cacheDir := filepath.Join(tmpDir, "cache")
+	os.MkdirAll(filepath.Join(cacheDir, "bucket1"), 0755)
+
+	// Max 500 bytes
+	r := newTestCacheRepo(db, cacheDir, 10*time.Minute, WithMaxCacheSize(500))
+
+	now := time.Now().UTC()
+	expires := now.Add(1 * time.Hour)
+
+	// Create files and entries: 200 + 200 + 200 = 600 bytes (over 500 limit)
+	for i, key := range []string{"old", "mid", "new"} {
+		path := filepath.Join(cacheDir, "bucket1", key)
+		os.WriteFile(path, make([]byte, 200), 0644)
+		insertTestEntryWithSize(t, db, "bucket1", key, path, 200, expires, now.Add(time.Duration(i)*time.Minute))
+	}
+
+	evicted, err := r.Evict(context.Background())
+	if err != nil {
+		t.Fatalf("Evict failed: %v", err)
+	}
+
+	if evicted != 1 {
+		t.Errorf("expected 1 evicted, got %d", evicted)
+	}
+
+	if countEntries(t, db) != 2 {
+		t.Errorf("expected 2 remaining entries, got %d", countEntries(t, db))
+	}
+
+	if totalCacheSize(t, db) != 400 {
+		t.Errorf("expected total size 400, got %d", totalCacheSize(t, db))
+	}
+
+	// The oldest entry ("old") should have been evicted
+	oldPath := filepath.Join(cacheDir, "bucket1", "old")
+	if _, err := os.Stat(oldPath); !os.IsNotExist(err) {
+		t.Error("expected oldest cache file to be deleted")
+	}
+
+	// Newer entries should remain
+	for _, key := range []string{"mid", "new"} {
+		path := filepath.Join(cacheDir, "bucket1", key)
+		if _, err := os.Stat(path); err != nil {
+			t.Errorf("expected %s cache file to still exist", key)
+		}
+	}
+}
+
+func TestEvict_NoEvictionWhenUnderLimit(t *testing.T) {
+	db, tmpDir := setupTestDB(t)
+	defer db.Close()
+
+	cacheDir := filepath.Join(tmpDir, "cache")
+	r := newTestCacheRepo(db, cacheDir, 10*time.Minute, WithMaxCacheSize(1000))
+
+	now := time.Now().UTC()
+	expires := now.Add(1 * time.Hour)
+	insertTestEntryWithSize(t, db, "bucket1", "key1", "/tmp/f1", 200, expires, now)
+	insertTestEntryWithSize(t, db, "bucket1", "key2", "/tmp/f2", 300, expires, now)
+
+	evicted, err := r.Evict(context.Background())
+	if err != nil {
+		t.Fatalf("Evict failed: %v", err)
+	}
+
+	if evicted != 0 {
+		t.Errorf("expected 0 evicted, got %d", evicted)
+	}
+
+	if countEntries(t, db) != 2 {
+		t.Errorf("expected 2 entries, got %d", countEntries(t, db))
+	}
+}
+
+func TestEvict_NoOpWhenMaxCacheSizeIsZero(t *testing.T) {
+	db, tmpDir := setupTestDB(t)
+	defer db.Close()
+
+	cacheDir := filepath.Join(tmpDir, "cache")
+	// No max cache size (default 0 = unlimited)
+	r := newTestCacheRepo(db, cacheDir, 10*time.Minute)
+
+	now := time.Now().UTC()
+	expires := now.Add(1 * time.Hour)
+	insertTestEntryWithSize(t, db, "bucket1", "key1", "/tmp/f1", 999999, expires, now)
+
+	evicted, err := r.Evict(context.Background())
+	if err != nil {
+		t.Fatalf("Evict failed: %v", err)
+	}
+
+	if evicted != 0 {
+		t.Errorf("expected 0 evicted (unlimited), got %d", evicted)
+	}
+}
+
+func TestEvict_EvictsMultipleEntries(t *testing.T) {
+	db, tmpDir := setupTestDB(t)
+	defer db.Close()
+
+	cacheDir := filepath.Join(tmpDir, "cache")
+	// Max 100 bytes
+	r := newTestCacheRepo(db, cacheDir, 10*time.Minute, WithMaxCacheSize(100))
+
+	now := time.Now().UTC()
+	expires := now.Add(1 * time.Hour)
+
+	// 4 entries x 100 bytes = 400 bytes total (over 100 limit)
+	for i, key := range []string{"a", "b", "c", "d"} {
+		insertTestEntryWithSize(t, db, "bucket1", key, "/tmp/"+key, 100, expires, now.Add(time.Duration(i)*time.Minute))
+	}
+
+	evicted, err := r.Evict(context.Background())
+	if err != nil {
+		t.Fatalf("Evict failed: %v", err)
+	}
+
+	// Need to evict 3 entries (400 -> 300 -> 200 -> 100) to get to 100
+	if evicted != 3 {
+		t.Errorf("expected 3 evicted, got %d", evicted)
+	}
+
+	if countEntries(t, db) != 1 {
+		t.Errorf("expected 1 remaining entry, got %d", countEntries(t, db))
 	}
 }

@@ -11,6 +11,7 @@ type CacheConfig struct {
 	CacheDir        string
 	TTL             time.Duration
 	CleanupInterval time.Duration
+	MaxCacheSize    int64
 }
 
 func LoadCacheConfigFromEnv() *CacheConfig {
@@ -38,10 +39,18 @@ func LoadCacheConfigFromEnv() *CacheConfig {
 		}
 	}
 
+	var maxCacheSize int64
+	if v := os.Getenv("CACHE_MAX_SIZE_MB"); v != "" {
+		if parsed, err := strconv.ParseInt(v, 10, 64); err == nil && parsed > 0 {
+			maxCacheSize = parsed * 1024 * 1024
+		}
+	}
+
 	return &CacheConfig{
 		DBPath:          dbPath,
 		CacheDir:        cacheDir,
 		TTL:             time.Duration(ttlMinutes) * time.Minute,
 		CleanupInterval: time.Duration(cleanupIntervalMinutes) * time.Minute,
+		MaxCacheSize:    maxCacheSize,
 	}
 }

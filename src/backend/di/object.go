@@ -11,7 +11,11 @@ import (
 )
 
 func CreateObjectsHandler(s3Client *s3.Client, db *sql.DB, cacheCfg *appconfig.CacheConfig, listCache *repository.ListCacheRepository) *handler.ObjectsHandler {
-	cacheRepo := repository.NewCacheRepository(db, cacheCfg.CacheDir, cacheCfg.TTL)
+	var opts []repository.CacheOption
+	if cacheCfg.MaxCacheSize > 0 {
+		opts = append(opts, repository.WithMaxCacheSize(cacheCfg.MaxCacheSize))
+	}
+	cacheRepo := repository.NewCacheRepository(db, cacheCfg.CacheDir, cacheCfg.TTL, opts...)
 
 	objectRepo := repository.NewObjectRepository(s3Client)
 	objectService := service.NewObjectService(objectRepo, cacheRepo, listCache)
