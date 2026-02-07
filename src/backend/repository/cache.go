@@ -292,6 +292,14 @@ func (r *CacheRepository) CleanupExpired(ctx context.Context) (int, error) {
 	return len(expired), nil
 }
 
+func (r *CacheRepository) Vacuum() error {
+	_, err := r.db.Exec("VACUUM")
+	if err != nil {
+		return errors.Wrap(err, "failed to vacuum database")
+	}
+	return nil
+}
+
 func (r *CacheRepository) StartCleanupLoop(ctx context.Context, interval time.Duration) {
 	go func() {
 		ticker := time.NewTicker(interval)
@@ -302,11 +310,27 @@ func (r *CacheRepository) StartCleanupLoop(ctx context.Context, interval time.Du
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
+				totalDeleted := 0
+
 				deleted, err := r.CleanupExpired(ctx)
 				if err != nil {
 					log.Printf("cache cleanup error: %v", err)
-				} else if deleted > 0 {
-					log.Printf("cache cleanup: deleted %d expired entries", deleted)
+				} else {
+					totalDeleted += deleted
+				}
+
+				evicted, err := r.Evict(ctx)
+				if err != nil {
+					log.Printf("cache eviction error: %v", err)
+				} else {
+					totalDeleted += evicted
+				}
+
+				if totalDeleted > 0 {
+					log.Printf("cache cleanup: deleted %d expired, evicted %d over-limit", deleted, evicted)
+					if err := r.Vacuum(); err != nil {
+						log.Printf("cache vacuum error: %v", err)
+					}
 				}
 			}
 		}

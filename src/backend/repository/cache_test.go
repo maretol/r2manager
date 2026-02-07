@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
@@ -392,5 +393,142 @@ func TestEvict_EvictsMultipleEntries(t *testing.T) {
 
 	if countEntries(t, db) != 1 {
 		t.Errorf("expected 1 remaining entry, got %d", countEntries(t, db))
+	}
+}
+
+func TestVacuum_Success(t *testing.T) {
+	db, tmpDir := setupTestDB(t)
+	defer db.Close()
+
+	cacheDir := filepath.Join(tmpDir, "cache")
+	r := newTestCacheRepo(db, cacheDir, 10*time.Minute)
+
+	// Insert and delete entries to create free pages
+	now := time.Now().UTC()
+	for i := range 100 {
+		key := fmt.Sprintf("key-%d", i)
+		insertTestEntryWithSize(t, db, "bucket1", key, "/tmp/"+key, 1000, now.Add(-1*time.Hour), now)
+	}
+	_, err := r.CleanupExpired(context.Background())
+	if err != nil {
+		t.Fatalf("CleanupExpired failed: %v", err)
+	}
+
+	// VACUUM should succeed without error
+	if err := r.Vacuum(); err != nil {
+		t.Fatalf("Vacuum failed: %v", err)
+	}
+
+	// DB should still be functional after VACUUM
+	if countEntries(t, db) != 0 {
+		t.Errorf("expected 0 entries after cleanup, got %d", countEntries(t, db))
+	}
+}
+
+func TestVacuum_ReducesFileSize(t *testing.T) {
+	db, tmpDir := setupTestDB(t)
+	defer db.Close()
+
+	cacheDir := filepath.Join(tmpDir, "cache")
+	r := newTestCacheRepo(db, cacheDir, 10*time.Minute)
+	dbPath := filepath.Join(tmpDir, "test.db")
+
+	// Insert many entries
+	now := time.Now().UTC()
+	for i := range 200 {
+		key := fmt.Sprintf("key-%d", i)
+		insertTestEntryWithSize(t, db, "bucket1", key, "/tmp/"+key, 10000, now.Add(-1*time.Hour), now)
+	}
+
+	// Force a checkpoint so WAL is flushed to main DB
+	db.Exec("PRAGMA wal_checkpoint(TRUNCATE)")
+
+	sizeBeforeDelete, err := os.Stat(dbPath)
+	if err != nil {
+		t.Fatalf("failed to stat DB: %v", err)
+	}
+
+	// Delete all entries
+	_, err = r.CleanupExpired(context.Background())
+	if err != nil {
+		t.Fatalf("CleanupExpired failed: %v", err)
+	}
+
+	// Checkpoint again before measuring
+	db.Exec("PRAGMA wal_checkpoint(TRUNCATE)")
+
+	sizeAfterDelete, err := os.Stat(dbPath)
+	if err != nil {
+		t.Fatalf("failed to stat DB: %v", err)
+	}
+
+	// Without VACUUM, file size should be same or similar
+	if sizeAfterDelete.Size() < sizeBeforeDelete.Size()/2 {
+		t.Skip("DB already shrunk without VACUUM, cannot test VACUUM effect")
+	}
+
+	// Run VACUUM
+	if err := r.Vacuum(); err != nil {
+		t.Fatalf("Vacuum failed: %v", err)
+	}
+
+	sizeAfterVacuum, err := os.Stat(dbPath)
+	if err != nil {
+		t.Fatalf("failed to stat DB: %v", err)
+	}
+
+	if sizeAfterVacuum.Size() >= sizeAfterDelete.Size() {
+		t.Errorf("expected file size to decrease after VACUUM: before=%d, after=%d",
+			sizeAfterDelete.Size(), sizeAfterVacuum.Size())
+	}
+}
+
+func TestStartCleanupLoop_RunsVacuumAfterDeletion(t *testing.T) {
+	db, tmpDir := setupTestDB(t)
+	defer db.Close()
+
+	cacheDir := filepath.Join(tmpDir, "cache")
+	os.MkdirAll(filepath.Join(cacheDir, "bucket1"), 0755)
+	r := newTestCacheRepo(db, cacheDir, 10*time.Minute)
+	dbPath := filepath.Join(tmpDir, "test.db")
+
+	// Insert expired entries
+	now := time.Now().UTC()
+	for i := range 100 {
+		key := fmt.Sprintf("key-%d", i)
+		path := filepath.Join(cacheDir, "bucket1", key)
+		os.WriteFile(path, make([]byte, 100), 0644)
+		insertTestEntryWithSize(t, db, "bucket1", key, path, 100, now.Add(-1*time.Hour), now)
+	}
+
+	// Checkpoint to flush WAL
+	db.Exec("PRAGMA wal_checkpoint(TRUNCATE)")
+
+	sizeBeforeCleanup, err := os.Stat(dbPath)
+	if err != nil {
+		t.Fatalf("failed to stat DB: %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	r.StartCleanupLoop(ctx, 100*time.Millisecond)
+
+	// Wait for cleanup cycle to run
+	time.Sleep(400 * time.Millisecond)
+
+	if countEntries(t, db) != 0 {
+		t.Errorf("expected all entries cleaned up, got %d", countEntries(t, db))
+	}
+
+	// Check that DB file shrank (VACUUM ran)
+	sizeAfterCleanup, err := os.Stat(dbPath)
+	if err != nil {
+		t.Fatalf("failed to stat DB: %v", err)
+	}
+
+	if sizeAfterCleanup.Size() >= sizeBeforeCleanup.Size() {
+		t.Errorf("expected DB file to shrink after cleanup+VACUUM: before=%d, after=%d",
+			sizeBeforeCleanup.Size(), sizeAfterCleanup.Size())
 	}
 }
