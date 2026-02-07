@@ -1,0 +1,86 @@
+name: Go Build and Test
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "src/backend/**"
+      - ".github/workflows/build-test-go.yml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "src/backend/**"
+      - ".github/workflows/build-test-go.yml"
+
+defaults:
+  run:
+    working-directory: src/backend
+
+env:
+  GO_VERSION: "1.24"
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: src/backend/go.sum
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Run tests
+        run: go test -v -race -coverprofile=coverage.out ./...
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: src/backend/coverage.out
+          retention-days: 7
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: src/backend/go.sum
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Build
+        run: go build -v ./...
+
+  status:
+    name: Backend CI Status
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: .
+    needs: [test, build]
+    if: always()
+    steps:
+      - name: Show status
+        run: echo "status"
+      - name: Check all jobs passed
+        if: ${{ needs.test.result == 'failure' || needs.build.result == 'failure' }}
+        run: |
+          echo "failure"
+          exit 1
