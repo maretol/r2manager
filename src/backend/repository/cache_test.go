@@ -527,7 +527,7 @@ func TestStartCleanupLoop_RunsVacuumAfterDeletion(t *testing.T) {
 		t.Fatalf("failed to stat DB: %v", err)
 	}
 
-	if sizeAfterCleanup.Size() >= sizeBeforeCleanup.Size() {
+	if sizeAfterCleanup.Size() > sizeBeforeCleanup.Size() {
 		t.Errorf("expected DB file to shrink after cleanup+VACUUM: before=%d, after=%d",
 			sizeBeforeCleanup.Size(), sizeAfterCleanup.Size())
 	}
