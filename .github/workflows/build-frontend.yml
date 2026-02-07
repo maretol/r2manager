@@ -65,6 +65,10 @@ jobs:
   status:
     name: Front CI Status
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: .
     needs: [lint, build]
     if: always()
     steps:
