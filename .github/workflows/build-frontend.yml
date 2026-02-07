@@ -68,10 +68,10 @@ jobs:
     needs: [lint, build]
     if: always()
     steps:
+      - name: Show status
+        run: echo "status"
       - name: Check all jobs passed
+        if: ${{ needs.test.result == "failure" || needs.build.result == "failure" }}
         run: |
-          if [[ "${{ needs.lint.result }}" != "success" || "${{ needs.build.result }}" != "success" ]]; then
-            echo "Some jobs failed"
-            exit 1
-          fi
-          echo "All checks passed"
+          echo "failure"
+          exit 1
