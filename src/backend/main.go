@@ -48,6 +48,12 @@ func main() {
 	oh := di.CreateObjectsHandler(s3Client, db, cacheCfg, listCache)
 	ch := di.CreateContentHandler(s3Client, db, cacheCfg)
 
+	// Start background cache cleanup
+	cacheRepo := repository.NewCacheRepository(db, cacheCfg.CacheDir, cacheCfg.TTL)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	cacheRepo.StartCleanupLoop(ctx, cacheCfg.CleanupInterval)
+
 	// Start server
 	r := router.NewRouter(bh, oh, ch)
 	if err := r.Run(":8080"); err != nil {

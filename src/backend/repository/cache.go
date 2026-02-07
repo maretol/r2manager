@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 	"sync"
@@ -175,6 +176,69 @@ func (r *CacheRepository) InvalidateByETags(ctx context.Context, bucketName stri
 	}
 
 	return len(stale), nil
+}
+
+func (r *CacheRepository) CleanupExpired(ctx context.Context) (int, error) {
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT bucket_name, object_key, cache_path FROM cache_entries WHERE expires_at <= ?`,
+		time.Now().UTC(),
+	)
+	if err != nil {
+		return 0, errors.Wrap(err, "failed to query expired cache entries")
+	}
+	defer rows.Close()
+
+	type expiredEntry struct {
+		bucketName string
+		objectKey  string
+		cachePath  string
+	}
+	var expired []expiredEntry
+
+	for rows.Next() {
+		var e expiredEntry
+		if err := rows.Scan(&e.bucketName, &e.objectKey, &e.cachePath); err != nil {
+			return 0, errors.Wrap(err, "failed to scan expired cache entry")
+		}
+		expired = append(expired, e)
+	}
+	if err := rows.Err(); err != nil {
+		return 0, errors.Wrap(err, "failed to iterate expired cache entries")
+	}
+
+	for _, e := range expired {
+		_, err := r.db.ExecContext(ctx,
+			`DELETE FROM cache_entries WHERE bucket_name = ? AND object_key = ?`,
+			e.bucketName, e.objectKey,
+		)
+		if err != nil {
+			return 0, errors.Wrap(err, "failed to delete expired cache entry")
+		}
+		os.Remove(e.cachePath)
+	}
+
+	return len(expired), nil
+}
+
+func (r *CacheRepository) StartCleanupLoop(ctx context.Context, interval time.Duration) {
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				deleted, err := r.CleanupExpired(ctx)
+				if err != nil {
+					log.Printf("cache cleanup error: %v", err)
+				} else if deleted > 0 {
+					log.Printf("cache cleanup: deleted %d expired entries", deleted)
+				}
+			}
+		}
+	}()
 }
 
 func (r *CacheRepository) cachePath(bucketName, objectKey string) string {

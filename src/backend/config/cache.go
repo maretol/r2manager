@@ -7,9 +7,10 @@ import (
 )
 
 type CacheConfig struct {
-	DBPath   string
-	CacheDir string
-	TTL      time.Duration
+	DBPath          string
+	CacheDir        string
+	TTL             time.Duration
+	CleanupInterval time.Duration
 }
 
 func LoadCacheConfigFromEnv() *CacheConfig {
@@ -30,9 +31,17 @@ func LoadCacheConfigFromEnv() *CacheConfig {
 		}
 	}
 
+	cleanupIntervalMinutes := 60
+	if v := os.Getenv("CACHE_CLEANUP_INTERVAL_MINUTES"); v != "" {
+		if parsed, err := strconv.Atoi(v); err == nil && parsed > 0 {
+			cleanupIntervalMinutes = parsed
+		}
+	}
+
 	return &CacheConfig{
-		DBPath:   dbPath,
-		CacheDir: cacheDir,
-		TTL:      time.Duration(ttlMinutes) * time.Minute,
+		DBPath:          dbPath,
+		CacheDir:        cacheDir,
+		TTL:             time.Duration(ttlMinutes) * time.Minute,
+		CleanupInterval: time.Duration(cleanupIntervalMinutes) * time.Minute,
 	}
 }
