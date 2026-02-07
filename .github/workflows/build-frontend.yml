@@ -7,7 +7,7 @@ on:
     paths:
       - "src/frontend/**"
       - ".github/workflows/build-frontend.yml"
-  pull_request:
+  pull_request_target:
     branches:
       - main
     paths:
