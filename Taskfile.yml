@@ -29,3 +29,16 @@ tasks:
     dir: .
     cmds:
       - docker compose up
+  down:
+    dir: .
+    cmds:
+      - docker compose down
+  prd-up:
+    dotenv: ["src/backend/.env", "src/frontend/.env"]
+    dir: .
+    cmds:
+      - docker compose -f docker-compose.b.yaml up --build -d
+  prd-down:
+    dir: .
+    cmds:
+      - docker compose -f docker-compose.b.yaml down

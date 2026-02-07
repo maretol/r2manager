@@ -11,8 +11,12 @@ type ErrorResponse = {
   error: string
 }
 
+// サーバサイドからの呼び出しでは自分のサーバのURLを使う必要がある
+// クライアントサイドからの呼び出しでは相対パスで問題ない
+const HOST = process.env.HOST || ''
+
 export async function fetchBuckets(): Promise<Bucket[]> {
-  const response = await fetch('http://localhost:3000/api/v1/buckets')
+  const response = await fetch(`${HOST}/api/v1/buckets`)
   if (!response.ok) {
     const errorData: ErrorResponse = await response.json()
     console.log(response.status)
@@ -39,7 +43,7 @@ export async function fetchObjects(bucketName: string, prefix: string = ''): Pro
   }
   params.set('delimiter', '/')
 
-  const url = `http://localhost:3000/api/v1/buckets/${encodeURIComponent(bucketName)}/objects?${params.toString()}`
+  const url = `${HOST}/api/v1/buckets/${encodeURIComponent(bucketName)}/objects?${params.toString()}`
   const response = await fetch(url)
 
   if (!response.ok) {
@@ -63,7 +67,7 @@ type ClearCacheResponse = {
 }
 
 export async function clearBucketsCache(): Promise<ClearCacheResponse> {
-  const response = await fetch('http://localhost:3000/api/v1/cache/api?type=buckets', {
+  const response = await fetch(`${HOST}/api/v1/cache/api?type=buckets`, {
     method: 'DELETE',
   })
 
@@ -76,12 +80,9 @@ export async function clearBucketsCache(): Promise<ClearCacheResponse> {
 }
 
 export async function clearObjectsCache(bucketName: string): Promise<ClearCacheResponse> {
-  const response = await fetch(
-    `http://localhost:3000/api/v1/cache/api?type=objects&bucket=${encodeURIComponent(bucketName)}`,
-    {
-      method: 'DELETE',
-    }
-  )
+  const response = await fetch(`${HOST}/api/v1/cache/api?type=objects&bucket=${encodeURIComponent(bucketName)}`, {
+    method: 'DELETE',
+  })
 
   if (!response.ok) {
     const errorData: ErrorResponse = await response.json()
@@ -97,7 +98,7 @@ export async function clearContentCache(bucketName: string, objectKey: string): 
     key: objectKey,
   })
 
-  const response = await fetch(`http://localhost:3000/api/v1/cache/content?${params.toString()}`, {
+  const response = await fetch(`${HOST}/api/v1/cache/content?${params.toString()}`, {
     method: 'DELETE',
   })
 

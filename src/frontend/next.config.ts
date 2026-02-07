@@ -1,8 +1,12 @@
 import type { NextConfig } from 'next'
+import { loadEnvConfig } from '@next/env'
+
+loadEnvConfig(process.cwd())
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8080'
 
 const nextConfig: NextConfig = {
+  output: 'standalone',
   async rewrites() {
     return [
       {
@@ -10,17 +14,6 @@ const nextConfig: NextConfig = {
         destination: `${BACKEND_URL}/api/v1/:path*`,
       },
     ]
-  },
-  images: {
-    dangerouslyAllowLocalIP: true,
-    remotePatterns: [
-      {
-        protocol: 'http',
-        hostname: 'localhost',
-        port: '3000',
-        pathname: '/api/v1/**',
-      },
-    ],
   },
 }
 

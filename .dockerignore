@@ -1,0 +1,9 @@
+.github
+.git
+.env*
+*.md
+LICENSE
+Dockerfile
+docker-compose*.yml
+tmp/
+vendor/
