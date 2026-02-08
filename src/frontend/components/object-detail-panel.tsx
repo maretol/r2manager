@@ -25,7 +25,7 @@ function isImageFile(filename: string): boolean {
 }
 
 function getObjectUrl(bucketName: string, key: string): string {
-  return `http://localhost:3000/api/v1/buckets/${encodeURIComponent(bucketName)}/content/${encodeURIComponent(key)}`
+  return `/api/v1/buckets/${encodeURIComponent(bucketName)}/content/${encodeURIComponent(key)}`
 }
 
 function getPublicObjectUrl(publicBaseUrl: string, key: string): string {

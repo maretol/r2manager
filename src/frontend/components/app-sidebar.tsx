@@ -19,8 +19,9 @@ export async function AppSideBar() {
   let buckets: Awaited<ReturnType<typeof fetchBuckets>> | null = null
   try {
     buckets = await fetchBuckets()
-  } catch {
+  } catch (error) {
     // fallback below
+    console.log('Failed to fetch buckets for sidebar', error)
   }
 
   return (

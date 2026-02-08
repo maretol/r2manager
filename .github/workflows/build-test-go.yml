@@ -10,9 +10,6 @@ on:
   pull_request:
     branches:
       - main
-    paths:
-      - "src/backend/**"
-      - ".github/workflows/build-test-go.yml"
 
 defaults:
   run:
@@ -22,9 +19,29 @@ env:
   GO_VERSION: "1.24"
 
 jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check for backend changes
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - "src/backend/**"
+              - ".github/workflows/build-test-go.yml"
+
   test:
     name: Test
     runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -51,6 +68,8 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -74,13 +93,17 @@ jobs:
       run:
         shell: bash
         working-directory: .
-    needs: [test, build]
+    needs: [changes, test, build]
     if: always()
     steps:
-      - name: Show status
-        run: echo "status"
       - name: Check all jobs passed
-        if: ${{ needs.test.result == 'failure' || needs.build.result == 'failure' }}
         run: |
-          echo "failure"
-          exit 1
+          if [[ "${{ needs.changes.outputs.backend }}" == "false" ]]; then
+            echo "No backend changes detected. Skipping."
+            exit 0
+          fi
+          if [[ "${{ needs.test.result }}" == "failure" || "${{ needs.build.result }}" == "failure" ]]; then
+            echo "failure"
+            exit 1
+          fi
+          echo "success"

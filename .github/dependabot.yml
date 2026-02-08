@@ -50,6 +50,7 @@ updates:
       next:
         patterns:
           - "next"
+          - "@next/*"
           - "eslint-config-next"
       tailwind:
         patterns:
