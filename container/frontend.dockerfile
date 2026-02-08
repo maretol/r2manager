@@ -9,6 +9,8 @@ RUN npm ci
 
 FROM base AS builder
 
+ARG BASE_PATH=""
+
 WORKDIR /app
 
 COPY --from=deps /app/node_modules ./node_modules
@@ -18,6 +20,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 
 RUN echo "BACKEND_URL=http://localhost:8080" >> .env
 RUN echo "HOST=http://localhost:3000" >> .env
+RUN echo "BASE_PATH=${BASE_PATH}" >> .env
 RUN echo "NEXT_PUBLIC_APP_NAME='R2 Manager'" >> .env
 
 RUN npm run build
@@ -32,7 +35,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 
 # default env vars
 ENV BACKEND_URL="http://localhost:8080"
-ENV HOSTNAME="localhost"
+ENV HOSTNAME="0.0.0.0"
 ENV PROTOCOL="http"
 ENV PORT="3000"
 
