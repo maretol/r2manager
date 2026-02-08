@@ -39,10 +39,12 @@ export function ObjectDetailPanel({ object, bucketName, prefix, publicUrl }: Obj
   const [publicObjectUrl, setPublicObjectUrl] = useState<string | null>(null)
 
   useEffect(() => {
-    getObjectURLs(bucketName, object.key, publicUrl).then(({ objectUrl, publicObjectUrl }) => {
+    const func = async () => {
+      const { objectUrl, publicObjectUrl } = await getObjectURLs(bucketName, object.key, publicUrl)
       setObjectUrl(objectUrl)
       setPublicObjectUrl(publicObjectUrl)
-    })
+    }
+    func()
   }, [bucketName, object.key, publicUrl])
 
   const handleClose = () => {
