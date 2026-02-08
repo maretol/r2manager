@@ -48,6 +48,7 @@ func main() {
 	oh := di.CreateObjectsHandler(s3Client, db, cacheCfg, listCache)
 	ch := di.CreateContentHandler(s3Client, db, cacheCfg)
 	cah := di.CreateCacheHandler(db, cacheCfg, listCache)
+	sh := di.CreateSettingsHandler(db)
 
 	// Start background cache cleanup
 	var opts []repository.CacheOption
@@ -60,7 +61,7 @@ func main() {
 	cacheRepo.StartCleanupLoop(ctx, cacheCfg.CleanupInterval)
 
 	// Start server
-	r := router.NewRouter(bh, oh, ch, cah)
+	r := router.NewRouter(bh, oh, ch, cah, sh)
 	if err := r.Run(":8080"); err != nil {
 		log.Fatalf("failed to start server: %v", err)
 	}

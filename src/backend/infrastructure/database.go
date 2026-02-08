@@ -21,6 +21,10 @@ CREATE TABLE IF NOT EXISTS cache_entries (
     PRIMARY KEY (bucket_name, object_key)
 );
 CREATE INDEX IF NOT EXISTS idx_cache_entries_expires_at ON cache_entries(expires_at);
+CREATE TABLE IF NOT EXISTS bucket_settings (
+    bucket_name TEXT NOT NULL PRIMARY KEY,
+    public_url  TEXT NOT NULL DEFAULT ''
+);
 `
 
 func NewSQLiteDB(dbPath string) (*sql.DB, error) {
