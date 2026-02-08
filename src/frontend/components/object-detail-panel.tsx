@@ -116,13 +116,19 @@ export function ObjectDetailPanel({ object, bucketName, prefix, publicUrl }: Obj
             variant="outline"
             size="sm"
             className="w-full justify-start cursor-pointer"
-            asChild
             disabled={!objectUrl}
+            onClick={() => {
+              if (!objectUrl) return
+              const a = document.createElement('a')
+              a.href = objectUrl
+              a.download = object.name
+              document.body.appendChild(a)
+              a.click()
+              document.body.removeChild(a)
+            }}
           >
-            <a href={objectUrl ?? undefined} download={object.name}>
-              <Download className="size-4" />
-              Download
-            </a>
+            <Download className="size-4" />
+            Download
           </Button>
 
           <Button
