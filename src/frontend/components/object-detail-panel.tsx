@@ -10,7 +10,6 @@ import { formatFileSize, formatDate } from '@/lib/object-utils'
 import { clearContentCache } from '@/lib/api'
 import { getObjectURLs } from '@/app/bucket/[name]/actions'
 import Image from 'next/image'
-import Link from 'next/link'
 
 type ObjectDetailPanelProps = {
   object: DisplayObject
@@ -120,10 +119,10 @@ export function ObjectDetailPanel({ object, bucketName, prefix, publicUrl }: Obj
             asChild
             disabled={!objectUrl}
           >
-            <Link href={objectUrl ?? ''} download={object.name}>
+            <a href={objectUrl ?? undefined} download={object.name}>
               <Download className="size-4" />
               Download
-            </Link>
+            </a>
           </Button>
 
           <Button
