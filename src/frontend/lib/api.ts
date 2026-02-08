@@ -14,7 +14,7 @@ type ErrorResponse = {
 // サーバサイドからの呼び出しでは自分のサーバのURLを使う必要がある
 const HOST = process.env.HOSTNAME
 const PROTOCOL = process.env.PROTOCOL || 'http'
-const PORT = process.env.PORT ? `:${process.env.PORT}` : '3000'
+const PORT = process.env.PORT ? `:${process.env.PORT}` : ':3000'
 // HOSTが設定されている = サーバサイドからの呼び出しとして扱う
 // クライアントサイドからの呼び出しでは相対パスで問題ないので空文字にする
 const SERVER_URL = HOST ? PROTOCOL + '://' + (HOST + PORT) : ''
@@ -85,7 +85,7 @@ export async function clearBucketsCache(): Promise<ClearCacheResponse> {
 }
 
 export async function clearObjectsCache(bucketName: string): Promise<ClearCacheResponse> {
-  const response = await fetch(`${HOST}/api/v1/cache/api?type=objects&bucket=${encodeURIComponent(bucketName)}`, {
+  const response = await fetch(`${SERVER_URL}/api/v1/cache/api?type=objects&bucket=${encodeURIComponent(bucketName)}`, {
     method: 'DELETE',
   })
 
@@ -103,7 +103,7 @@ export async function clearContentCache(bucketName: string, objectKey: string): 
     key: objectKey,
   })
 
-  const response = await fetch(`${HOST}/api/v1/cache/content?${params.toString()}`, {
+  const response = await fetch(`${SERVER_URL}/api/v1/cache/content?${params.toString()}`, {
     method: 'DELETE',
   })
 
