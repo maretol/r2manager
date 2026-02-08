@@ -8,6 +8,7 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}/frontend
+  BASE_PATH: "/r2_manager"
 
 jobs:
   build-and-push:
@@ -50,6 +51,8 @@ jobs:
           file: container/frontend.dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
+          build-args: |
+            BASE_PATH=${{ env.BASE_PATH }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,id=docker-frontend-build-cache
           cache-to: type=gha,mode=max,id=docker-frontend-build-cache
