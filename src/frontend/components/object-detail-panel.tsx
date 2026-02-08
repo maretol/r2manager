@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Download, Copy, Link, X, Check, Trash2, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -8,6 +8,7 @@ import { Separator } from '@/components/ui/separator'
 import type { DisplayObject } from '@/types/object'
 import { formatFileSize, formatDate } from '@/lib/object-utils'
 import { clearContentCache } from '@/lib/api'
+import { getObjectURL } from '@/app/bucket/[name]/actions'
 import Image from 'next/image'
 
 type ObjectDetailPanelProps = {
@@ -24,10 +25,6 @@ function isImageFile(filename: string): boolean {
   return IMAGE_EXTENSIONS.some((ext) => lowerName.endsWith(ext))
 }
 
-function getObjectUrl(bucketName: string, key: string): string {
-  return `/api/v1/buckets/${encodeURIComponent(bucketName)}/content/${encodeURIComponent(key)}`
-}
-
 function getPublicObjectUrl(publicBaseUrl: string, key: string): string {
   const baseUrl = publicBaseUrl.endsWith('/') ? publicBaseUrl.slice(0, -1) : publicBaseUrl
   return `${baseUrl}/${key}`
@@ -42,8 +39,12 @@ export function ObjectDetailPanel({ object, bucketName, prefix, publicUrl }: Obj
 
   const hasPublicUrl = publicUrl.length > 0
   const isImage = isImageFile(object.name)
-  const objectUrl = getObjectUrl(bucketName, object.key)
+  const [objectUrl, setObjectUrl] = useState<string | null>(null)
   const publicObjectUrl = hasPublicUrl ? getPublicObjectUrl(publicUrl, object.key) : null
+
+  useEffect(() => {
+    getObjectURL(bucketName, object.key).then(setObjectUrl)
+  }, [bucketName, object.key])
 
   const handleClose = () => {
     const basePath = `/bucket/${encodeURIComponent(bucketName)}`
@@ -64,6 +65,7 @@ export function ObjectDetailPanel({ object, bucketName, prefix, publicUrl }: Obj
   }
 
   const handleDownload = () => {
+    if (!objectUrl) return
     const link = document.createElement('a')
     link.href = objectUrl
     link.download = object.name
@@ -96,7 +98,7 @@ export function ObjectDetailPanel({ object, bucketName, prefix, publicUrl }: Obj
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {isImage && !imageError && (
+        {isImage && !imageError && objectUrl && (
           <div className="rounded-lg border bg-muted/30 p-2">
             <Image
               src={objectUrl}
@@ -129,7 +131,7 @@ export function ObjectDetailPanel({ object, bucketName, prefix, publicUrl }: Obj
             variant="outline"
             size="sm"
             className="w-full justify-start cursor-pointer"
-            onClick={() => handleCopyUrl(objectUrl, 'internal')}
+            onClick={() => objectUrl && handleCopyUrl(objectUrl, 'internal')}
           >
             {copiedUrl === 'internal' ? <Check className="size-4" /> : <Copy className="size-4" />}
             {copiedUrl === 'internal' ? 'Copied!' : 'Copy URL'}
