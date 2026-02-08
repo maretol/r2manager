@@ -20,7 +20,6 @@ const PORT = process.env.PORT ? `:${process.env.PORT}` : ':3000'
 const SERVER_URL = HOST ? PROTOCOL + '://' + (HOST + PORT) : ''
 
 export async function fetchBuckets(): Promise<Bucket[]> {
-  console.log('Fetching buckets from API...' + SERVER_URL)
   const response = await fetch(`${SERVER_URL}/api/v1/buckets`)
   if (!response.ok) {
     const errorData: ErrorResponse = await response.json()
