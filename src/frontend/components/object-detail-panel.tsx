@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import type { DisplayObject } from '@/types/object'
 import { formatFileSize, formatDate } from '@/lib/object-utils'
-import { getPublicUrl } from '@/lib/settings'
 import { clearContentCache } from '@/lib/api'
 import Image from 'next/image'
 
@@ -15,6 +14,7 @@ type ObjectDetailPanelProps = {
   object: DisplayObject
   bucketName: string
   prefix: string
+  publicUrl: string
 }
 
 const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.bmp', '.ico']
@@ -33,14 +33,13 @@ function getPublicObjectUrl(publicBaseUrl: string, key: string): string {
   return `${baseUrl}/${key}`
 }
 
-export function ObjectDetailPanel({ object, bucketName, prefix }: ObjectDetailPanelProps) {
+export function ObjectDetailPanel({ object, bucketName, prefix, publicUrl }: ObjectDetailPanelProps) {
   const router = useRouter()
   const [copiedUrl, setCopiedUrl] = useState<'internal' | 'public' | null>(null)
   const [imageError, setImageError] = useState(false)
   const [clearingCache, setClearingCache] = useState(false)
   const [cacheCleared, setCacheCleared] = useState(false)
 
-  const publicUrl = getPublicUrl(bucketName)
   const hasPublicUrl = publicUrl.length > 0
   const isImage = isImageFile(object.name)
   const objectUrl = getObjectUrl(bucketName, object.key)

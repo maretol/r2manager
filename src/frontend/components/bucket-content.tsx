@@ -9,9 +9,10 @@ type BucketContentProps = {
   prefix: string
   selectedObject: DisplayObject | null
   selectedNotFound: boolean
+  publicUrl: string
 }
 
-export function BucketContent({ objects, bucketName, prefix, selectedObject, selectedNotFound }: BucketContentProps) {
+export function BucketContent({ objects, bucketName, prefix, selectedObject, selectedNotFound, publicUrl }: BucketContentProps) {
   return (
     <div className="flex gap-4">
       <div className="flex-1 min-w-0">
@@ -19,7 +20,7 @@ export function BucketContent({ objects, bucketName, prefix, selectedObject, sel
       </div>
       <div className="w-1/4 shrink-0 border rounded-lg bg-card">
         {selectedObject && (
-          <ObjectDetailPanel object={selectedObject} bucketName={bucketName} prefix={prefix} />
+          <ObjectDetailPanel object={selectedObject} bucketName={bucketName} prefix={prefix} publicUrl={publicUrl} />
         )}
         {selectedNotFound && (
           <div className="p-4">

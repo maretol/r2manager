@@ -97,6 +97,65 @@ export async function clearObjectsCache(bucketName: string): Promise<ClearCacheR
   return response.json()
 }
 
+// Settings API
+
+export type BucketSettingsResponse = {
+  bucket_name: string
+  public_url: string
+}
+
+type GetAllBucketSettingsResponse = {
+  settings: BucketSettingsResponse[]
+}
+
+export async function fetchAllBucketSettings(): Promise<BucketSettingsResponse[]> {
+  const response = await fetch(`${SERVER_URL}/api/v1/settings/buckets`)
+  if (!response.ok) {
+    const errorData: ErrorResponse = await response.json()
+    throw new Error(errorData.error || 'Failed to fetch bucket settings')
+  }
+  const data: GetAllBucketSettingsResponse = await response.json()
+  return data.settings
+}
+
+export async function fetchBucketSettings(bucketName: string): Promise<BucketSettingsResponse> {
+  const response = await fetch(`${SERVER_URL}/api/v1/settings/buckets/${encodeURIComponent(bucketName)}`)
+  if (!response.ok) {
+    const errorData: ErrorResponse = await response.json()
+    throw new Error(errorData.error || 'Failed to fetch bucket settings')
+  }
+  return response.json()
+}
+
+export async function bulkUpdateBucketSettings(
+  settings: BucketSettingsResponse[]
+): Promise<BucketSettingsResponse[]> {
+  const response = await fetch(`${SERVER_URL}/api/v1/settings/buckets`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ settings }),
+  })
+  if (!response.ok) {
+    const errorData: ErrorResponse = await response.json()
+    throw new Error(errorData.error || 'Failed to update bucket settings')
+  }
+  const data: GetAllBucketSettingsResponse = await response.json()
+  return data.settings
+}
+
+export async function updateBucketPublicUrl(bucketName: string, publicUrl: string): Promise<BucketSettingsResponse> {
+  const response = await fetch(`${SERVER_URL}/api/v1/settings/buckets/${encodeURIComponent(bucketName)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ public_url: publicUrl }),
+  })
+  if (!response.ok) {
+    const errorData: ErrorResponse = await response.json()
+    throw new Error(errorData.error || 'Failed to update bucket settings')
+  }
+  return response.json()
+}
+
 export async function clearContentCache(bucketName: string, objectKey: string): Promise<ClearCacheResponse> {
   const params = new URLSearchParams({
     bucket: bucketName,

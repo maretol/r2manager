@@ -1,4 +1,4 @@
-import { fetchObjects } from '@/lib/api'
+import { fetchObjects, fetchBucketSettings } from '@/lib/api'
 import { parseObjectsToDisplay } from '@/lib/object-utils'
 import { BreadcrumbNav } from '@/components/breadcrumb-nav'
 import { BucketContent } from '@/components/bucket-content'
@@ -15,8 +15,12 @@ export default async function BucketPage({ params, searchParams }: BucketPagePro
   const { prefix = '', selected } = await searchParams
   const bucketName = decodeURIComponent(name)
 
-  const response = await fetchObjects(bucketName, prefix)
+  const [response, bucketSettings] = await Promise.all([
+    fetchObjects(bucketName, prefix),
+    fetchBucketSettings(bucketName),
+  ])
   const displayObjects = parseObjectsToDisplay(response.objects, prefix)
+  const publicUrl = bucketSettings.public_url
 
   const selectedObject = selected ? (displayObjects.find((obj) => obj.key === selected) ?? null) : null
   const selectedNotFound = !!selected && !selectedObject
@@ -37,6 +41,7 @@ export default async function BucketPage({ params, searchParams }: BucketPagePro
             prefix={prefix}
             selectedObject={selectedObject}
             selectedNotFound={selectedNotFound}
+            publicUrl={publicUrl}
           />
         </CardContent>
       </Card>
