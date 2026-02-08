@@ -15,9 +15,10 @@ type ErrorResponse = {
 const HOST = process.env.HOSTNAME
 const PROTOCOL = process.env.PROTOCOL || 'http'
 const PORT = process.env.PORT ? `:${process.env.PORT}` : ':3000'
+const BASE_PATH = process.env.BASE_PATH || ''
 // HOSTが設定されている = サーバサイドからの呼び出しとして扱う
 // クライアントサイドからの呼び出しでは相対パスで問題ないので空文字にする
-const SERVER_URL = HOST ? PROTOCOL + '://' + (HOST + PORT) : ''
+const SERVER_URL = (HOST ? PROTOCOL + '://' + (HOST + PORT) : '') + BASE_PATH
 
 export async function fetchBuckets(): Promise<Bucket[]> {
   const response = await fetch(`${SERVER_URL}/api/v1/buckets`)
