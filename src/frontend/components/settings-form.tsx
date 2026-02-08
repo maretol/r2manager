@@ -1,10 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useActionState, useEffect, useState } from 'react'
 import { SaveIcon, Loader2Icon } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { bulkUpdateBucketSettings, type Bucket, type BucketSettingsResponse } from '@/lib/api'
+import { type Bucket, type BucketSettingsResponse } from '@/lib/api'
+import { saveBucketSettings } from '@/app/settings/actions'
 
 type SettingsFormProps = {
   buckets: Bucket[]
@@ -12,6 +13,9 @@ type SettingsFormProps = {
 }
 
 export function SettingsForm({ buckets, initialSettings }: SettingsFormProps) {
+  const [state, formAction, isPending] = useActionState(saveBucketSettings, null)
+  const [lastState, setLastState] = useState(state)
+  const [showMessage, setShowMessage] = useState(false)
   const [publicUrls, setPublicUrls] = useState<Record<string, string>>(() => {
     const map: Record<string, string> = {}
     for (const s of initialSettings) {
@@ -19,34 +23,20 @@ export function SettingsForm({ buckets, initialSettings }: SettingsFormProps) {
     }
     return map
   })
-  const [saving, setSaving] = useState(false)
-  const [saveMessage, setSaveMessage] = useState<string | null>(null)
 
-  const handlePublicUrlChange = (bucketName: string, value: string) => {
-    setPublicUrls((prev) => ({ ...prev, [bucketName]: value }))
+  if (state !== lastState) {
+    setLastState(state)
+    setShowMessage(state !== null)
   }
 
-  const handleSave = async () => {
-    setSaving(true)
-    setSaveMessage(null)
-
-    try {
-      const settings = buckets.map((bucket) => ({
-        bucket_name: bucket.name,
-        public_url: publicUrls[bucket.name] || '',
-      }))
-      await bulkUpdateBucketSettings(settings)
-      setSaveMessage('Settings saved successfully')
-      setTimeout(() => setSaveMessage(null), 3000)
-    } catch {
-      setSaveMessage('Failed to save settings')
-    } finally {
-      setSaving(false)
-    }
-  }
+  useEffect(() => {
+    if (!showMessage) return
+    const timer = setTimeout(() => setShowMessage(false), 3000)
+    return () => clearTimeout(timer)
+  }, [showMessage])
 
   return (
-    <div className="space-y-6">
+    <form action={formAction} className="space-y-6">
       <div>
         <h3 className="text-lg font-medium mb-4">Bucket Public URLs</h3>
         <p className="text-sm text-muted-foreground mb-4">
@@ -59,15 +49,17 @@ export function SettingsForm({ buckets, initialSettings }: SettingsFormProps) {
           <div className="space-y-4">
             {buckets.map((bucket) => (
               <div key={bucket.name} className="flex flex-col gap-2">
+                <input type="hidden" name="bucket_name" value={bucket.name} />
                 <label htmlFor={`url-${bucket.name}`} className="text-sm font-medium">
                   {bucket.name}
                 </label>
                 <Input
                   id={`url-${bucket.name}`}
+                  name={`public_url:${bucket.name}`}
                   type="url"
                   placeholder="https://example.com"
                   value={publicUrls[bucket.name] || ''}
-                  onChange={(e) => handlePublicUrlChange(bucket.name, e.target.value)}
+                  onChange={(e) => setPublicUrls((prev) => ({ ...prev, [bucket.name]: e.target.value }))}
                 />
               </div>
             ))}
@@ -76,20 +68,20 @@ export function SettingsForm({ buckets, initialSettings }: SettingsFormProps) {
       </div>
 
       <div className="flex items-center gap-4">
-        <Button onClick={handleSave} disabled={saving} className="cursor-pointer">
-          {saving ? (
+        <Button type="submit" disabled={isPending} className="cursor-pointer">
+          {isPending ? (
             <Loader2Icon className="size-4 animate-spin mr-2 pointer-events-auto" />
           ) : (
             <SaveIcon className="size-4 mr-2" />
           )}
           Save Settings
         </Button>
-        {saveMessage && (
-          <span className={`text-sm ${saveMessage.includes('success') ? 'text-green-600' : 'text-destructive'}`}>
-            {saveMessage}
+        {showMessage && state && (
+          <span className={`text-sm ${state.success ? 'text-green-600' : 'text-destructive'}`}>
+            {state.message}
           </span>
         )}
       </div>
-    </div>
+    </form>
   )
 }
