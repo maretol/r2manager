@@ -29,6 +29,7 @@ func NewRouter(bucketsHandler *handler.BucketsHandler, objectsHandler *handler.O
 		api.DELETE("/cache/api", cacheHandler.ClearAPICache)
 
 		api.GET("/settings/buckets", settingsHandler.GetAllBucketSettings)
+		api.PUT("/settings/buckets", settingsHandler.BulkUpdateBucketSettings)
 		api.GET("/settings/buckets/:bucketName", settingsHandler.GetBucketSettings)
 		api.PUT("/settings/buckets/:bucketName", settingsHandler.UpdateBucketSettings)
 	}

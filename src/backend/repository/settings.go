@@ -69,3 +69,32 @@ func (r *SettingsRepository) UpsertBucketSettings(ctx context.Context, bucketNam
 
 	return nil
 }
+
+func (r *SettingsRepository) BulkUpsertBucketSettings(ctx context.Context, settings []domain.BucketSettings) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return errors.Wrap(err, "failed to begin transaction")
+	}
+	defer tx.Rollback()
+
+	stmt, err := tx.PrepareContext(ctx,
+		`INSERT INTO bucket_settings (bucket_name, public_url) VALUES (?, ?)
+		 ON CONFLICT(bucket_name) DO UPDATE SET public_url = excluded.public_url`,
+	)
+	if err != nil {
+		return errors.Wrap(err, "failed to prepare statement")
+	}
+	defer stmt.Close()
+
+	for _, s := range settings {
+		if _, err := stmt.ExecContext(ctx, s.BucketName, s.PublicUrl); err != nil {
+			return errors.Wrap(err, "failed to upsert bucket settings")
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return errors.Wrap(err, "failed to commit transaction")
+	}
+
+	return nil
+}

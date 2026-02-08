@@ -52,6 +52,25 @@ func (h *SettingsHandler) GetBucketSettings(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, settings)
 }
 
+type bulkUpdateBucketSettingsRequest struct {
+	Settings []domain.BucketSettings `json:"settings"`
+}
+
+func (h *SettingsHandler) BulkUpdateBucketSettings(ctx *gin.Context) {
+	var req bulkUpdateBucketSettingsRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
+		return
+	}
+
+	if err := h.service.BulkUpdateBucketSettings(ctx.Request.Context(), req.Settings); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"settings": req.Settings})
+}
+
 type updateBucketSettingsRequest struct {
 	PublicUrl string `json:"public_url"`
 }

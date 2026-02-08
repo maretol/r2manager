@@ -26,3 +26,7 @@ func (s *SettingsService) GetBucketSettings(ctx context.Context, bucketName stri
 func (s *SettingsService) UpdateBucketPublicUrl(ctx context.Context, bucketName, publicUrl string) error {
 	return s.repo.UpsertBucketSettings(ctx, bucketName, publicUrl)
 }
+
+func (s *SettingsService) BulkUpdateBucketSettings(ctx context.Context, settings []domain.BucketSettings) error {
+	return s.repo.BulkUpsertBucketSettings(ctx, settings)
+}
