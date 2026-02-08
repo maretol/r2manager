@@ -32,7 +32,9 @@ ENV NEXT_TELEMETRY_DISABLED=1
 
 # default env vars
 ENV BACKEND_URL="http://localhost:8080"
-ENV HOST="http://localhost:3000"
+ENV HOSTNAME="localhost"
+ENV PROTOCOL="http"
+ENV PORT="3000"
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs

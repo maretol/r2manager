@@ -12,11 +12,16 @@ type ErrorResponse = {
 }
 
 // サーバサイドからの呼び出しでは自分のサーバのURLを使う必要がある
-// クライアントサイドからの呼び出しでは相対パスで問題ない
-const HOST = process.env.HOST || ''
+const HOST = process.env.HOSTNAME
+const PROTOCOL = process.env.PROTOCOL || 'http'
+const PORT = process.env.PORT ? `:${process.env.PORT}` : '3000'
+// HOSTが設定されている = サーバサイドからの呼び出しとして扱う
+// クライアントサイドからの呼び出しでは相対パスで問題ないので空文字にする
+const SERVER_URL = HOST ? PROTOCOL + '://' + (HOST + PORT) : ''
 
 export async function fetchBuckets(): Promise<Bucket[]> {
-  const response = await fetch(`${HOST}/api/v1/buckets`)
+  console.log('Fetching buckets from API...' + SERVER_URL)
+  const response = await fetch(`${SERVER_URL}/api/v1/buckets`)
   if (!response.ok) {
     const errorData: ErrorResponse = await response.json()
     console.log(response.status)
@@ -43,7 +48,7 @@ export async function fetchObjects(bucketName: string, prefix: string = ''): Pro
   }
   params.set('delimiter', '/')
 
-  const url = `${HOST}/api/v1/buckets/${encodeURIComponent(bucketName)}/objects?${params.toString()}`
+  const url = `${SERVER_URL}/api/v1/buckets/${encodeURIComponent(bucketName)}/objects?${params.toString()}`
   const response = await fetch(url)
 
   if (!response.ok) {
@@ -67,7 +72,7 @@ type ClearCacheResponse = {
 }
 
 export async function clearBucketsCache(): Promise<ClearCacheResponse> {
-  const response = await fetch(`${HOST}/api/v1/cache/api?type=buckets`, {
+  const response = await fetch(`${SERVER_URL}/api/v1/cache/api?type=buckets`, {
     method: 'DELETE',
   })
 

@@ -28,7 +28,6 @@ cp .env.example .env.local
 `.env.local`の内容:
 
 ```
-NEXT_PUBLIC_API_URL=http://localhost:8080
 NEXT_PUBLIC_APP_NAME=R2 Manager
 ```
 

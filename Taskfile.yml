@@ -33,12 +33,16 @@ tasks:
     dir: .
     cmds:
       - docker compose down
-  prd-up:
+  up-prd:
     dotenv: ["src/backend/.env", "src/frontend/.env"]
     dir: .
     cmds:
-      - docker compose -f docker-compose.b.yaml up --build -d
-  prd-down:
+      - docker compose -f docker-compose.prd-sample.yaml up --build -d
+  down-prd:
     dir: .
     cmds:
-      - docker compose -f docker-compose.b.yaml down
+      - docker compose -f docker-compose.prd-sample.yaml down
+  log-prd:
+    dir: .
+    cmds:
+      - docker compose -f docker-compose.prd-sample.yaml logs -f
