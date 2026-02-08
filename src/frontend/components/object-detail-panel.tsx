@@ -2,14 +2,15 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Download, Copy, Link, X, Check, Trash2, Loader2 } from 'lucide-react'
+import { Download, Copy, X, Check, Trash2, Loader2, LinkIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import type { DisplayObject } from '@/types/object'
 import { formatFileSize, formatDate } from '@/lib/object-utils'
 import { clearContentCache } from '@/lib/api'
-import { getObjectURL } from '@/app/bucket/[name]/actions'
+import { getObjectURLs } from '@/app/bucket/[name]/actions'
 import Image from 'next/image'
+import Link from 'next/link'
 
 type ObjectDetailPanelProps = {
   object: DisplayObject
@@ -25,11 +26,6 @@ function isImageFile(filename: string): boolean {
   return IMAGE_EXTENSIONS.some((ext) => lowerName.endsWith(ext))
 }
 
-function getPublicObjectUrl(publicBaseUrl: string, key: string): string {
-  const baseUrl = publicBaseUrl.endsWith('/') ? publicBaseUrl.slice(0, -1) : publicBaseUrl
-  return `${baseUrl}/${key}`
-}
-
 export function ObjectDetailPanel({ object, bucketName, prefix, publicUrl }: ObjectDetailPanelProps) {
   const router = useRouter()
   const [copiedUrl, setCopiedUrl] = useState<'internal' | 'public' | null>(null)
@@ -40,11 +36,16 @@ export function ObjectDetailPanel({ object, bucketName, prefix, publicUrl }: Obj
   const hasPublicUrl = publicUrl.length > 0
   const isImage = isImageFile(object.name)
   const [objectUrl, setObjectUrl] = useState<string | null>(null)
-  const publicObjectUrl = hasPublicUrl ? getPublicObjectUrl(publicUrl, object.key) : null
+  const [publicObjectUrl, setPublicObjectUrl] = useState<string | null>(null)
 
   useEffect(() => {
-    getObjectURL(bucketName, object.key).then(setObjectUrl)
-  }, [bucketName, object.key])
+    const func = async () => {
+      const { objectUrl, publicObjectUrl } = await getObjectURLs(bucketName, object.key, publicUrl)
+      setObjectUrl(objectUrl)
+      setPublicObjectUrl(publicObjectUrl)
+    }
+    func()
+  }, [bucketName, object.key, publicUrl])
 
   const handleClose = () => {
     const basePath = `/bucket/${encodeURIComponent(bucketName)}`
@@ -62,16 +63,6 @@ export function ObjectDetailPanel({ object, bucketName, prefix, publicUrl }: Obj
     } catch {
       console.error('Failed to copy URL')
     }
-  }
-
-  const handleDownload = () => {
-    if (!objectUrl) return
-    const link = document.createElement('a')
-    link.href = objectUrl
-    link.download = object.name
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
   }
 
   const handleClearCache = async () => {
@@ -122,16 +113,28 @@ export function ObjectDetailPanel({ object, bucketName, prefix, publicUrl }: Obj
         <Separator />
 
         <div className="space-y-2">
-          <Button variant="outline" size="sm" className="w-full justify-start cursor-pointer" onClick={handleDownload}>
-            <Download className="size-4" />
-            Download
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full justify-start cursor-pointer"
+            asChild
+            disabled={!objectUrl}
+          >
+            <Link href={objectUrl ?? ''} download={object.name}>
+              <Download className="size-4" />
+              Download
+            </Link>
           </Button>
 
           <Button
             variant="outline"
             size="sm"
             className="w-full justify-start cursor-pointer"
-            onClick={() => objectUrl && handleCopyUrl(objectUrl, 'internal')}
+            disabled={!objectUrl}
+            onClick={() => {
+              if (!objectUrl) return
+              handleCopyUrl(objectUrl, 'internal')
+            }}
           >
             {copiedUrl === 'internal' ? <Check className="size-4" /> : <Copy className="size-4" />}
             {copiedUrl === 'internal' ? 'Copied!' : 'Copy URL'}
@@ -144,7 +147,7 @@ export function ObjectDetailPanel({ object, bucketName, prefix, publicUrl }: Obj
               className="w-full justify-start cursor-pointer"
               onClick={() => handleCopyUrl(publicObjectUrl, 'public')}
             >
-              {copiedUrl === 'public' ? <Check className="size-4" /> : <Link className="size-4" />}
+              {copiedUrl === 'public' ? <Check className="size-4" /> : <LinkIcon className="size-4" />}
               {copiedUrl === 'public' ? 'Copied!' : 'Copy Public URL'}
             </Button>
           )}
