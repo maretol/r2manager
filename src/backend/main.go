@@ -43,12 +43,16 @@ func main() {
 	// List cache (shared between buckets and objects)
 	listCache := repository.NewListCacheRepository()
 
+	// Upload config
+	uploadCfg := appconfig.LoadUploadConfigFromEnv()
+
 	// DI wiring
 	bh := di.CreateBucketsHandler(s3Client, listCache)
 	oh := di.CreateObjectsHandler(s3Client, db, cacheCfg, listCache)
 	ch := di.CreateContentHandler(s3Client, db, cacheCfg)
 	cah := di.CreateCacheHandler(db, cacheCfg, listCache)
 	sh := di.CreateSettingsHandler(db)
+	uh := di.CreateUploadHandler(s3Client, listCache, uploadCfg)
 
 	// Start background cache cleanup
 	var opts []repository.CacheOption
@@ -61,7 +65,7 @@ func main() {
 	cacheRepo.StartCleanupLoop(ctx, cacheCfg.CleanupInterval)
 
 	// Start server
-	r := router.NewRouter(bh, oh, ch, cah, sh)
+	r := router.NewRouter(bh, oh, ch, cah, sh, uh)
 	if err := r.Run(":8080"); err != nil {
 		log.Fatalf("failed to start server: %v", err)
 	}
