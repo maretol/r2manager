@@ -115,20 +115,18 @@ export function ObjectDetailPanel({ object, bucketName, prefix, publicUrl }: Obj
           <Button
             variant="outline"
             size="sm"
-            className="w-full justify-start cursor-pointer"
-            disabled={!objectUrl}
-            onClick={() => {
-              if (!objectUrl) return
-              const a = document.createElement('a')
-              a.href = objectUrl
-              a.download = object.name
-              document.body.appendChild(a)
-              a.click()
-              document.body.removeChild(a)
-            }}
+            className={`w-full justify-start cursor-pointer ${!objectUrl ? 'pointer-events-none opacity-50' : ''}`}
+            asChild
           >
-            <Download className="size-4" />
-            Download
+            <a
+              href={objectUrl ?? undefined}
+              download={object.name}
+              aria-disabled={!objectUrl}
+              tabIndex={!objectUrl ? -1 : undefined}
+            >
+              <Download className="size-4" />
+              Download
+            </a>
           </Button>
 
           <Button
