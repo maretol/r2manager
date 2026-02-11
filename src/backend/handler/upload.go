@@ -53,12 +53,12 @@ func (h *UploadHandler) UploadObject(ctx *gin.Context) {
 	// Phase 1: リクエストボディの受信進捗を追跡
 	if uploadID != "" {
 		h.progressStore.Register(uploadID)
-		totalBytes := ctx.Request.ContentLength
-		ctx.Request.Body = progress.NewProgressReadCloser(
+		totalBytes := max(ctx.Request.ContentLength, 0)
+		progressReader, err := progress.NewProgressReadCloser(
 			ctx.Request.Body,
 			func(bytesProcessed int64) {
 				h.progressStore.Publish(uploadID, domain.UploadEvent{
-					EventType: "progress",
+					EventType: domain.EventProgress,
 					Data: domain.UploadProgress{
 						UploadID:       uploadID,
 						Phase:          domain.PhaseReceiving,
@@ -69,6 +69,11 @@ func (h *UploadHandler) UploadObject(ctx *gin.Context) {
 			},
 			100*time.Millisecond,
 		)
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		ctx.Request.Body = progressReader
 	}
 
 	file, header, err := ctx.Request.FormFile("file")
@@ -77,7 +82,7 @@ func (h *UploadHandler) UploadObject(ctx *gin.Context) {
 		if errors.As(err, &maxBytesErr) {
 			if uploadID != "" {
 				h.progressStore.Publish(uploadID, domain.UploadEvent{
-					EventType: "error",
+					EventType: domain.EventError,
 					Data:      domain.UploadError{UploadID: uploadID, Error: "file too large"},
 				})
 			}
@@ -89,7 +94,7 @@ func (h *UploadHandler) UploadObject(ctx *gin.Context) {
 		}
 		if uploadID != "" {
 			h.progressStore.Publish(uploadID, domain.UploadEvent{
-				EventType: "error",
+				EventType: domain.EventError,
 				Data:      domain.UploadError{UploadID: uploadID, Error: "file is required"},
 			})
 		}
@@ -101,7 +106,7 @@ func (h *UploadHandler) UploadObject(ctx *gin.Context) {
 	if header.Size > h.maxUploadSize {
 		if uploadID != "" {
 			h.progressStore.Publish(uploadID, domain.UploadEvent{
-				EventType: "error",
+				EventType: domain.EventError,
 				Data:      domain.UploadError{UploadID: uploadID, Error: "file too large"},
 			})
 		}
@@ -119,7 +124,7 @@ func (h *UploadHandler) UploadObject(ctx *gin.Context) {
 	if uploadID != "" {
 		uploadingCallback = func(bytesProcessed int64) {
 			h.progressStore.Publish(uploadID, domain.UploadEvent{
-				EventType: "progress",
+				EventType: domain.EventProgress,
 				Data: domain.UploadProgress{
 					UploadID:       uploadID,
 					Phase:          domain.PhaseUploading,
@@ -134,7 +139,7 @@ func (h *UploadHandler) UploadObject(ctx *gin.Context) {
 	if err != nil {
 		if uploadID != "" {
 			h.progressStore.Publish(uploadID, domain.UploadEvent{
-				EventType: "error",
+				EventType: domain.EventError,
 				Data:      domain.UploadError{UploadID: uploadID, Error: err.Error()},
 			})
 		}
@@ -148,7 +153,7 @@ func (h *UploadHandler) UploadObject(ctx *gin.Context) {
 
 	if uploadID != "" {
 		h.progressStore.Publish(uploadID, domain.UploadEvent{
-			EventType: "complete",
+			EventType: domain.EventComplete,
 			Data:      domain.UploadComplete{UploadID: uploadID, Result: result},
 		})
 	}

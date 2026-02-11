@@ -26,7 +26,15 @@ type UploadError struct {
 	Error    string `json:"error"`
 }
 
+type UploadEventType string
+
+const (
+	EventProgress UploadEventType = "progress"
+	EventComplete UploadEventType = "complete"
+	EventError    UploadEventType = "error"
+)
+
 type UploadEvent struct {
-	EventType string
+	EventType UploadEventType
 	Data      any
 }

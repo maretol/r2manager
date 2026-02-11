@@ -98,7 +98,7 @@ func (s *UploadProgressStore) Publish(uploadID string, event domain.UploadEvent)
 	defer entry.mu.Unlock()
 
 	entry.lastEvent = &event
-	if event.EventType == "complete" || event.EventType == "error" {
+	if event.EventType == domain.EventComplete || event.EventType == domain.EventError {
 		now := time.Now()
 		entry.completedAt = &now
 	}

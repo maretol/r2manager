@@ -39,7 +39,11 @@ func (s *UploadService) UploadObject(ctx context.Context, bucketName, key, conte
 	var reader io.ReadSeeker
 	baseReader := bytes.NewReader(buf.Bytes())
 	if onProgress != nil {
-		reader = progress.NewProgressReadSeeker(baseReader, onProgress, 100*time.Millisecond)
+		progressReader, err := progress.NewProgressReadSeeker(baseReader, onProgress, 100*time.Millisecond)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to create progress reader")
+		}
+		reader = progressReader
 	} else {
 		reader = baseReader
 	}

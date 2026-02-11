@@ -1,12 +1,15 @@
 package progress
 
 import (
+	"errors"
 	"io"
 	"sync/atomic"
 	"time"
 
 	serviceif "r2manager/service/interface"
 )
+
+var ErrNilCallback = errors.New("callback cannot be nil")
 
 // ProgressReadCloser は io.ReadCloser をラップして読み取りバイト数を追跡する。
 // Phase 1（クライアントからのリクエストボディ受信）で使用する。
@@ -18,12 +21,15 @@ type ProgressReadCloser struct {
 	throttle  time.Duration
 }
 
-func NewProgressReadCloser(inner io.ReadCloser, callback serviceif.ProgressCallback, throttle time.Duration) *ProgressReadCloser {
+func NewProgressReadCloser(inner io.ReadCloser, callback serviceif.ProgressCallback, throttle time.Duration) (*ProgressReadCloser, error) {
+	if callback == nil {
+		return nil, ErrNilCallback
+	}
 	return &ProgressReadCloser{
 		inner:    inner,
 		callback: callback,
 		throttle: throttle,
-	}
+	}, nil
 }
 
 func (r *ProgressReadCloser) Read(p []byte) (int, error) {
@@ -54,12 +60,15 @@ type ProgressReadSeeker struct {
 	throttle  time.Duration
 }
 
-func NewProgressReadSeeker(inner io.ReadSeeker, callback serviceif.ProgressCallback, throttle time.Duration) *ProgressReadSeeker {
+func NewProgressReadSeeker(inner io.ReadSeeker, callback serviceif.ProgressCallback, throttle time.Duration) (*ProgressReadSeeker, error) {
+	if callback == nil {
+		return nil, ErrNilCallback
+	}
 	return &ProgressReadSeeker{
 		inner:    inner,
 		callback: callback,
 		throttle: throttle,
-	}
+	}, nil
 }
 
 func (r *ProgressReadSeeker) Read(p []byte) (int, error) {

@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"r2manager/domain"
 	"r2manager/progress"
 )
 
@@ -50,7 +51,7 @@ func (h *UploadProgressHandler) GetUploadProgress(ctx *gin.Context) {
 			fmt.Fprintf(w, "event: %s\ndata: %s\n\n", event.EventType, string(data))
 			ctx.Writer.Flush()
 
-			if event.EventType == "complete" || event.EventType == "error" {
+			if event.EventType == domain.EventComplete || event.EventType == domain.EventError {
 				return false
 			}
 			return true
