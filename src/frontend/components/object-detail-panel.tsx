@@ -32,6 +32,7 @@ export function ObjectDetailPanel({ object, bucketName, prefix, publicUrl }: Obj
   const [imageError, setImageError] = useState(false)
   const [clearingCache, setClearingCache] = useState(false)
   const [cacheCleared, setCacheCleared] = useState(false)
+  const objectRawURL = `/buckets/${bucketName}/content/${decodeURIComponent(object.key)}`
 
   const hasPublicUrl = publicUrl.length > 0
   const isImage = isImageFile(object.name)
@@ -118,9 +119,9 @@ export function ObjectDetailPanel({ object, bucketName, prefix, publicUrl }: Obj
             size="sm"
             className="w-full justify-start cursor-pointer"
             asChild
-            disabled={!objectUrl}
+            disabled={!objectRawURL}
           >
-            <Link href={objectUrl ?? ''} download={object.name}>
+            <Link href={objectRawURL} download={object.name}>
               <Download className="size-4" />
               Download
             </Link>
