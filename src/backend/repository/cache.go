@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -20,6 +21,7 @@ import (
 type CacheRepository struct {
 	db           *sql.DB
 	cacheDir     string
+	cacheDirAbs  string
 	ttl          time.Duration
 	maxCacheSize int64
 }
@@ -31,10 +33,16 @@ var (
 
 func NewCacheRepository(db *sql.DB, cacheDir string, ttl time.Duration, opts ...CacheOption) *CacheRepository {
 	once.Do(func() {
+		absDir, err := filepath.Abs(cacheDir)
+		if err != nil {
+			// Fallback to the provided cacheDir if Abs fails for some reason.
+			absDir = cacheDir
+		}
 		repo = &CacheRepository{
-			db:       db,
-			cacheDir: cacheDir,
-			ttl:      ttl,
+			db:          db,
+			cacheDir:    cacheDir,
+			cacheDirAbs: absDir,
+			ttl:         ttl,
 		}
 		for _, opt := range opts {
 			opt(repo)
@@ -340,7 +348,53 @@ func (r *CacheRepository) StartCleanupLoop(ctx context.Context, interval time.Du
 func (r *CacheRepository) cachePath(bucketName, objectKey string) string {
 	hash := sha256.Sum256([]byte(objectKey))
 	filename := fmt.Sprintf("%x", hash)
-	return filepath.Join(r.cacheDir, bucketName, filename)
+
+	// Sanitize bucketName to avoid directory traversal and ensure the
+	// resulting path always stays under the configured cache directory.
+	safeBucket := sanitizeBucketName(bucketName)
+
+	fullPath := filepath.Join(r.cacheDirAbs, safeBucket, filename)
+
+	// Defense-in-depth: ensure the resolved path is under the cache directory.
+	if !strings.HasPrefix(fullPath, r.cacheDirAbs+string(filepath.Separator)) {
+		fullPath = filepath.Join(r.cacheDirAbs, "default", filename)
+	}
+
+	return fullPath
+}
+
+// sanitizeBucketName ensures that the bucket component used in cache paths
+// cannot escape the cache directory by stripping leading separators and
+// replacing any remaining path separators with an underscore.
+func sanitizeBucketName(bucketName string) string {
+	if bucketName == "" {
+		return "default"
+	}
+	// Remove any leading path separators to avoid absolute or root-relative paths.
+	for len(bucketName) > 0 && (bucketName[0] == '/' || bucketName[0] == '\\') {
+		bucketName = bucketName[1:]
+	}
+	if bucketName == "" {
+		return "default"
+	}
+	// Replace any remaining separators with a safe character.
+	safe := make([]rune, 0, len(bucketName))
+	for _, r := range bucketName {
+		if r == '/' || r == '\\' {
+			safe = append(safe, '_')
+		} else {
+			safe = append(safe, r)
+		}
+	}
+	if len(safe) == 0 {
+		return "default"
+	}
+	result := string(safe)
+	// Reject "." and ".." to prevent directory traversal.
+	if result == "." || result == ".." {
+		return "default"
+	}
+	return result
 }
 
 func (r *CacheRepository) ClearAll(ctx context.Context) (int64, error) {
