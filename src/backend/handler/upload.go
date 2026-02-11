@@ -1,13 +1,12 @@
 package handler
 
 import (
+	"errors"
 	"mime"
 	"net/http"
 	"path/filepath"
-	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/pkg/errors"
 
 	serviceif "r2manager/service/interface"
 )
@@ -29,7 +28,6 @@ func (h *UploadHandler) UploadObject(ctx *gin.Context) {
 	}
 
 	key := ctx.Param("key")
-	key = strings.TrimPrefix(key, "/")
 	if key == "" {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "key is required"})
 		return
@@ -37,8 +35,21 @@ func (h *UploadHandler) UploadObject(ctx *gin.Context) {
 
 	overwrite := ctx.Query("overwrite") == "true"
 
+	// マルチパートのオーバーヘッド分を加算してボディサイズを制限する
+	// FormFile によるパース前に制限をかけることで、巨大リクエストによるリソース消費を防ぐ
+	const multipartOverhead = 4096
+	ctx.Request.Body = http.MaxBytesReader(ctx.Writer, ctx.Request.Body, h.maxUploadSize+multipartOverhead)
+
 	file, header, err := ctx.Request.FormFile("file")
 	if err != nil {
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) {
+			ctx.JSON(http.StatusRequestEntityTooLarge, gin.H{
+				"error":    "file too large",
+				"max_size": h.maxUploadSize,
+			})
+			return
+		}
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "file is required"})
 		return
 	}

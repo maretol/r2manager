@@ -1,6 +1,7 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"log"
@@ -21,19 +22,28 @@ func NewUploadService(repo serviceif.UploadRepository, listCache serviceif.ListC
 }
 
 func (s *UploadService) UploadObject(ctx context.Context, bucketName, key, contentType string, body io.Reader, size int64, overwrite bool) (*serviceif.UploadResult, error) {
-	if !overwrite {
-		exists, err := s.repo.HeadObject(ctx, bucketName, key)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to check object existence")
-		}
-		if exists {
-			return nil, serviceif.ErrObjectAlreadyExists
-		}
+	key = sanitizeObjectPath(key)
+	if key == "" {
+		return nil, errors.New("invalid key")
 	}
 
-	etag, err := s.repo.PutObject(ctx, bucketName, key, contentType, body)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to upload object")
+	// リクエストボディを一度バッファに読み込み、io.ReadSeeker として渡すことで
+	// SDK がリトライ時にボディを巻き戻せるようにする
+	var buf bytes.Buffer
+	if _, err := io.Copy(&buf, body); err != nil {
+		return nil, errors.Wrap(err, "failed to read request body")
+	}
+	reader := bytes.NewReader(buf.Bytes())
+
+	var etag string
+	var putErr error
+	if overwrite {
+		etag, putErr = s.repo.PutObject(ctx, bucketName, key, contentType, reader)
+	} else {
+		etag, putErr = s.repo.PutObjectIfNotExists(ctx, bucketName, key, contentType, reader)
+	}
+	if putErr != nil {
+		return nil, errors.Wrap(putErr, "failed to upload object")
 	}
 
 	// Invalidate list cache for this bucket
@@ -48,6 +58,10 @@ func (s *UploadService) UploadObject(ctx context.Context, bucketName, key, conte
 }
 
 func (s *UploadService) CreateDirectory(ctx context.Context, bucketName, path string) (*serviceif.UploadResult, error) {
+	path = sanitizeObjectPath(path)
+	if path == "" {
+		return nil, errors.New("invalid path")
+	}
 	if !strings.HasSuffix(path, "/") {
 		path = path + "/"
 	}
@@ -67,6 +81,28 @@ func (s *UploadService) CreateDirectory(ctx context.Context, bucketName, path st
 	}, nil
 }
 
-func (s *UploadService) ObjectExists(ctx context.Context, bucketName, key string) (bool, error) {
-	return s.repo.HeadObject(ctx, bucketName, key)
+// sanitizeObjectPath はオブジェクトキーのパスを正規化・検証する。
+// 先頭スラッシュの除去、連続スラッシュの正規化、パストラバーサルの排除を行い、
+// 不正なパスの場合は空文字を返す。
+func sanitizeObjectPath(path string) string {
+	path = strings.TrimSpace(path)
+	// 先頭のスラッシュを除去
+	path = strings.TrimLeft(path, "/")
+	if path == "" {
+		return ""
+	}
+
+	// 連続スラッシュを正規化
+	for strings.Contains(path, "//") {
+		path = strings.ReplaceAll(path, "//", "/")
+	}
+
+	// パストラバーサルを含むパスを拒否
+	for segment := range strings.SplitSeq(strings.TrimSuffix(path, "/"), "/") {
+		if segment == ".." || segment == "." {
+			return ""
+		}
+	}
+
+	return path
 }
