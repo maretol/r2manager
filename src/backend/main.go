@@ -9,6 +9,7 @@ import (
 	appconfig "r2manager/config"
 	"r2manager/di"
 	"r2manager/infrastructure"
+	"r2manager/progress"
 	"r2manager/repository"
 	"r2manager/router"
 )
@@ -46,13 +47,17 @@ func main() {
 	// Upload config
 	uploadCfg := appconfig.LoadUploadConfigFromEnv()
 
+	// Progress store
+	progressStore := progress.NewUploadProgressStore()
+
 	// DI wiring
 	bh := di.CreateBucketsHandler(s3Client, listCache)
 	oh := di.CreateObjectsHandler(s3Client, db, cacheCfg, listCache)
 	ch := di.CreateContentHandler(s3Client, db, cacheCfg)
 	cah := di.CreateCacheHandler(db, cacheCfg, listCache)
 	sh := di.CreateSettingsHandler(db)
-	uh := di.CreateUploadHandler(s3Client, listCache, uploadCfg)
+	uh := di.CreateUploadHandler(s3Client, listCache, uploadCfg, progressStore)
+	uph := di.CreateUploadProgressHandler(progressStore)
 
 	// Start background cache cleanup
 	var opts []repository.CacheOption
@@ -64,8 +69,11 @@ func main() {
 	defer cancel()
 	cacheRepo.StartCleanupLoop(ctx, cacheCfg.CleanupInterval)
 
+	// Start progress store cleanup
+	progressStore.StartCleanupLoop(ctx)
+
 	// Start server
-	r := router.NewRouter(bh, oh, ch, cah, sh, uh)
+	r := router.NewRouter(bh, oh, ch, cah, sh, uh, uph)
 	if err := r.Run(":8080"); err != nil {
 		log.Fatalf("failed to start server: %v", err)
 	}

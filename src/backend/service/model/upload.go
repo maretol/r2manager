@@ -6,9 +6,11 @@ import (
 	"io"
 	"log"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 
+	"r2manager/progress"
 	serviceif "r2manager/service/interface"
 )
 
@@ -21,7 +23,7 @@ func NewUploadService(repo serviceif.UploadRepository, listCache serviceif.ListC
 	return &UploadService{repo: repo, listCache: listCache}
 }
 
-func (s *UploadService) UploadObject(ctx context.Context, bucketName, key, contentType string, body io.Reader, size int64, overwrite bool) (*serviceif.UploadResult, error) {
+func (s *UploadService) UploadObject(ctx context.Context, bucketName, key, contentType string, body io.Reader, size int64, overwrite bool, onProgress serviceif.ProgressCallback) (*serviceif.UploadResult, error) {
 	key = sanitizeObjectPath(key)
 	if key == "" {
 		return nil, errors.New("invalid key")
@@ -33,7 +35,18 @@ func (s *UploadService) UploadObject(ctx context.Context, bucketName, key, conte
 	if _, err := io.Copy(&buf, body); err != nil {
 		return nil, errors.Wrap(err, "failed to read request body")
 	}
-	reader := bytes.NewReader(buf.Bytes())
+
+	var reader io.ReadSeeker
+	baseReader := bytes.NewReader(buf.Bytes())
+	if onProgress != nil {
+		progressReader, err := progress.NewProgressReadSeeker(baseReader, onProgress, 100*time.Millisecond)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to create progress reader")
+		}
+		reader = progressReader
+	} else {
+		reader = baseReader
+	}
 
 	var etag string
 	var putErr error
