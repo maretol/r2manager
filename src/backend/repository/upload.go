@@ -6,6 +6,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/smithy-go"
 	"github.com/pkg/errors"
 
 	serviceif "r2manager/service/interface"
@@ -52,8 +53,8 @@ func (r *UploadRepository) PutObjectIfNotExists(ctx context.Context, bucketName,
 	output, err := r.client.PutObject(ctx, input)
 	if err != nil {
 		// R2: 412 PreconditionFailed はオブジェクトが既に存在することを示す
-		var respErr interface{ HTTPStatusCode() int }
-		if errors.As(err, &respErr) && respErr.HTTPStatusCode() == 412 {
+		var respErr smithy.APIError
+		if errors.As(err, &respErr) && respErr.ErrorCode() == "PreconditionFailed" {
 			return "", serviceif.ErrObjectAlreadyExists
 		}
 		return "", errors.Wrap(err, "failed to PutObject")
@@ -66,4 +67,3 @@ func (r *UploadRepository) PutObjectIfNotExists(ctx context.Context, bucketName,
 
 	return etag, nil
 }
-
