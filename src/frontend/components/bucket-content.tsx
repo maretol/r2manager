@@ -2,6 +2,8 @@ import { ObjectTable } from '@/components/object-table'
 import { ObjectDetailPanel } from '@/components/object-detail-panel'
 import { AlertCircle } from 'lucide-react'
 import type { DisplayObject } from '@/types/object'
+import { CreateDirectoryDialog } from './create-directory-dialog'
+import { UploadDialog } from './upload-dialog'
 
 type BucketContentProps = {
   objects: DisplayObject[]
@@ -12,13 +14,24 @@ type BucketContentProps = {
   publicUrl: string
 }
 
-export function BucketContent({ objects, bucketName, prefix, selectedObject, selectedNotFound, publicUrl }: BucketContentProps) {
+export function BucketContent({
+  objects,
+  bucketName,
+  prefix,
+  selectedObject,
+  selectedNotFound,
+  publicUrl,
+}: BucketContentProps) {
   return (
     <div className="flex gap-4">
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0 space-y-4">
+        <div className="flex items-center gap-2">
+          <CreateDirectoryDialog bucketName={bucketName} prefix={prefix} />
+          <UploadDialog bucketName={bucketName} prefix={prefix} />
+        </div>
         <ObjectTable objects={objects} bucketName={bucketName} prefix={prefix} selectedObject={selectedObject} />
       </div>
-      <div className="w-1/4 shrink-0 border rounded-lg bg-card">
+      <div className="w-1/3 shrink-0 border rounded-lg bg-card">
         {selectedObject && (
           <ObjectDetailPanel object={selectedObject} bucketName={bucketName} prefix={prefix} publicUrl={publicUrl} />
         )}
