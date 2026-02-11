@@ -32,7 +32,7 @@ export function ObjectDetailPanel({ object, bucketName, prefix, publicUrl }: Obj
   const [imageError, setImageError] = useState(false)
   const [clearingCache, setClearingCache] = useState(false)
   const [cacheCleared, setCacheCleared] = useState(false)
-  const objectRawURL = `/buckets/${bucketName}/content/${decodeURIComponent(object.key)}`
+  const objectRawURL = `/api/v1/buckets/${bucketName}/content/${decodeURIComponent(object.key)}`
 
   const hasPublicUrl = publicUrl.length > 0
   const isImage = isImageFile(object.name)
