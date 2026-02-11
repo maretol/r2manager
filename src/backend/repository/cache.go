@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -18,10 +19,10 @@ import (
 )
 
 type CacheRepository struct {
-	db          *sql.DB
-	cacheDir    string
-	cacheDirAbs string
-	ttl         time.Duration
+	db           *sql.DB
+	cacheDir     string
+	cacheDirAbs  string
+	ttl          time.Duration
 	maxCacheSize int64
 }
 
@@ -344,14 +345,24 @@ func (r *CacheRepository) StartCleanupLoop(ctx context.Context, interval time.Du
 	}()
 }
 
-	// Sanitize bucketName to avoid directory traversal and ensure the
-	// resulting path always stays under the configured cache directory.
-	safeBucket := sanitizeBucketName(bucketName)
 func (r *CacheRepository) cachePath(bucketName, objectKey string) string {
 	hash := sha256.Sum256([]byte(objectKey))
 	filename := fmt.Sprintf("%x", hash)
-	return filepath.Join(r.cacheDirAbs, safeBucket, filename)
+
+	// Sanitize bucketName to avoid directory traversal and ensure the
+	// resulting path always stays under the configured cache directory.
+	safeBucket := sanitizeBucketName(bucketName)
+
+	fullPath := filepath.Join(r.cacheDirAbs, safeBucket, filename)
+
+	// Defense-in-depth: ensure the resolved path is under the cache directory.
+	if !strings.HasPrefix(fullPath, r.cacheDirAbs+string(filepath.Separator)) {
+		fullPath = filepath.Join(r.cacheDirAbs, "default", filename)
+	}
+
+	return fullPath
 }
+
 // sanitizeBucketName ensures that the bucket component used in cache paths
 // cannot escape the cache directory by stripping leading separators and
 // replacing any remaining path separators with an underscore.
@@ -378,9 +389,13 @@ func sanitizeBucketName(bucketName string) string {
 	if len(safe) == 0 {
 		return "default"
 	}
-	return string(safe)
+	result := string(safe)
+	// Reject "." and ".." to prevent directory traversal.
+	if result == "." || result == ".." {
+		return "default"
+	}
+	return result
 }
-
 
 func (r *CacheRepository) ClearAll(ctx context.Context) (int64, error) {
 	rows, err := r.db.QueryContext(ctx, `SELECT cache_path FROM cache_entries`)
