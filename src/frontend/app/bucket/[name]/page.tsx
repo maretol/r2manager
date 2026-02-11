@@ -28,7 +28,7 @@ export default async function BucketPage({ params, searchParams }: BucketPagePro
   return (
     <div className="flex flex-col gap-4 p-6">
       <Card className="w-full">
-        <CardHeader className="pb-3">
+        <CardHeader className="space-y-2">
           <div className="flex items-center gap-2">
             <BreadcrumbNav bucketName={bucketName} prefix={prefix} />
             <RefreshObjectsButton bucketName={bucketName} />

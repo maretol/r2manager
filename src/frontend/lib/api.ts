@@ -1,3 +1,5 @@
+'use server'
+
 export type Bucket = {
   name: string
   creation_date: string
@@ -11,13 +13,11 @@ type ErrorResponse = {
   error: string
 }
 
-// サーバサイドからの呼び出しでは自分のサーバのURLを使う必要がある
+// BasePathの設定の都合で、APIアクセスはすべてサーバーアクションで行う
 const HOST = process.env.HOSTNAME
 const PROTOCOL = process.env.PROTOCOL || 'http'
 const PORT = process.env.PORT ? `:${process.env.PORT}` : ':3000'
 const BASE_PATH = process.env.BASE_PATH || ''
-// HOSTが設定されている = サーバサイドからの呼び出しとして扱う
-// クライアントサイドからの呼び出しでは相対パスで問題ないので空文字にする
 const SERVER_URL = (HOST ? PROTOCOL + '://' + (HOST + PORT) : '') + BASE_PATH
 
 export async function fetchBuckets(): Promise<Bucket[]> {
@@ -127,9 +127,7 @@ export async function fetchBucketSettings(bucketName: string): Promise<BucketSet
   return response.json()
 }
 
-export async function bulkUpdateBucketSettings(
-  settings: BucketSettingsResponse[]
-): Promise<BucketSettingsResponse[]> {
+export async function bulkUpdateBucketSettings(settings: BucketSettingsResponse[]): Promise<BucketSettingsResponse[]> {
   const response = await fetch(`${SERVER_URL}/api/v1/settings/buckets`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
