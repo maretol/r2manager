@@ -5,19 +5,23 @@ import (
 	"mime"
 	"net/http"
 	"path/filepath"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
+	"r2manager/domain"
+	"r2manager/progress"
 	serviceif "r2manager/service/interface"
 )
 
 type UploadHandler struct {
 	service       serviceif.UploadService
 	maxUploadSize int64
+	progressStore *progress.UploadProgressStore
 }
 
-func NewUploadHandler(service serviceif.UploadService, maxUploadSize int64) *UploadHandler {
-	return &UploadHandler{service: service, maxUploadSize: maxUploadSize}
+func NewUploadHandler(service serviceif.UploadService, maxUploadSize int64, progressStore *progress.UploadProgressStore) *UploadHandler {
+	return &UploadHandler{service: service, maxUploadSize: maxUploadSize, progressStore: progressStore}
 }
 
 func (h *UploadHandler) UploadObject(ctx *gin.Context) {
@@ -35,20 +39,59 @@ func (h *UploadHandler) UploadObject(ctx *gin.Context) {
 
 	overwrite := ctx.Query("overwrite") == "true"
 
+	// Upload ID の取得（ヘッダー優先、クエリパラメータにフォールバック）
+	uploadID := ctx.GetHeader("X-Upload-ID")
+	if uploadID == "" {
+		uploadID = ctx.Query("upload_id")
+	}
+
 	// マルチパートのオーバーヘッド分を加算してボディサイズを制限する
 	// FormFile によるパース前に制限をかけることで、巨大リクエストによるリソース消費を防ぐ
 	const multipartOverhead = 4096
 	ctx.Request.Body = http.MaxBytesReader(ctx.Writer, ctx.Request.Body, h.maxUploadSize+multipartOverhead)
 
+	// Phase 1: リクエストボディの受信進捗を追跡
+	if uploadID != "" {
+		h.progressStore.Register(uploadID)
+		totalBytes := ctx.Request.ContentLength
+		ctx.Request.Body = progress.NewProgressReadCloser(
+			ctx.Request.Body,
+			func(bytesProcessed int64) {
+				h.progressStore.Publish(uploadID, domain.UploadEvent{
+					EventType: "progress",
+					Data: domain.UploadProgress{
+						UploadID:       uploadID,
+						Phase:          domain.PhaseReceiving,
+						BytesProcessed: bytesProcessed,
+						TotalBytes:     totalBytes,
+					},
+				})
+			},
+			100*time.Millisecond,
+		)
+	}
+
 	file, header, err := ctx.Request.FormFile("file")
 	if err != nil {
 		var maxBytesErr *http.MaxBytesError
 		if errors.As(err, &maxBytesErr) {
+			if uploadID != "" {
+				h.progressStore.Publish(uploadID, domain.UploadEvent{
+					EventType: "error",
+					Data:      domain.UploadError{UploadID: uploadID, Error: "file too large"},
+				})
+			}
 			ctx.JSON(http.StatusRequestEntityTooLarge, gin.H{
 				"error":    "file too large",
 				"max_size": h.maxUploadSize,
 			})
 			return
+		}
+		if uploadID != "" {
+			h.progressStore.Publish(uploadID, domain.UploadEvent{
+				EventType: "error",
+				Data:      domain.UploadError{UploadID: uploadID, Error: "file is required"},
+			})
 		}
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "file is required"})
 		return
@@ -56,6 +99,12 @@ func (h *UploadHandler) UploadObject(ctx *gin.Context) {
 	defer file.Close()
 
 	if header.Size > h.maxUploadSize {
+		if uploadID != "" {
+			h.progressStore.Publish(uploadID, domain.UploadEvent{
+				EventType: "error",
+				Data:      domain.UploadError{UploadID: uploadID, Error: "file too large"},
+			})
+		}
 		ctx.JSON(http.StatusRequestEntityTooLarge, gin.H{
 			"error":    "file too large",
 			"max_size": h.maxUploadSize,
@@ -65,14 +114,43 @@ func (h *UploadHandler) UploadObject(ctx *gin.Context) {
 
 	contentType := detectContentType(header.Filename, header.Header.Get("Content-Type"))
 
-	result, err := h.service.UploadObject(ctx.Request.Context(), bucketName, key, contentType, file, header.Size, overwrite)
+	// Phase 2 のコールバックを準備
+	var uploadingCallback serviceif.ProgressCallback
+	if uploadID != "" {
+		uploadingCallback = func(bytesProcessed int64) {
+			h.progressStore.Publish(uploadID, domain.UploadEvent{
+				EventType: "progress",
+				Data: domain.UploadProgress{
+					UploadID:       uploadID,
+					Phase:          domain.PhaseUploading,
+					BytesProcessed: bytesProcessed,
+					TotalBytes:     header.Size,
+				},
+			})
+		}
+	}
+
+	result, err := h.service.UploadObject(ctx.Request.Context(), bucketName, key, contentType, file, header.Size, overwrite, uploadingCallback)
 	if err != nil {
+		if uploadID != "" {
+			h.progressStore.Publish(uploadID, domain.UploadEvent{
+				EventType: "error",
+				Data:      domain.UploadError{UploadID: uploadID, Error: err.Error()},
+			})
+		}
 		if errors.Is(err, serviceif.ErrObjectAlreadyExists) {
 			ctx.JSON(http.StatusConflict, gin.H{"error": "object already exists", "code": "CONFLICT"})
 			return
 		}
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
+	}
+
+	if uploadID != "" {
+		h.progressStore.Publish(uploadID, domain.UploadEvent{
+			EventType: "complete",
+			Data:      domain.UploadComplete{UploadID: uploadID, Result: result},
+		})
 	}
 
 	ctx.JSON(http.StatusOK, result)
