@@ -72,8 +72,9 @@ export function useFileUpload({ bucketName, prefix, onAllCompleteAction }: UseFi
               allSucceeded = false
               updateFile(entry.id, { status: 'error', error: result.error })
             }
-          } catch {
+          } catch (err) {
             allSucceeded = false
+            console.error('Upload failed:', err)
             updateFile(entry.id, { status: 'error', error: 'アップロードに失敗しました' })
           }
         }
