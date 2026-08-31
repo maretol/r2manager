@@ -1,4 +1,4 @@
-FROM node:22 AS base
+FROM node:25 AS base
 FROM base AS deps
 
 WORKDIR /app
@@ -26,7 +26,7 @@ RUN echo "NEXT_PUBLIC_APP_NAME='R2 Manager'" >> .env
 RUN npm run build
 
 
-FROM node:22-slim AS runner
+FROM node:25-slim AS runner
 
 WORKDIR /app
 
