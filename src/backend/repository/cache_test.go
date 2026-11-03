@@ -84,6 +84,21 @@ func countEntries(t *testing.T, db *sql.DB) int {
 	return count
 }
 
+// waitForCondition polls cond every 10ms until it returns true, and fails the
+// test if timeout elapses first. Use it instead of a fixed time.Sleep when
+// waiting for a background goroutine (e.g. the cleanup loop) to finish work,
+// so the test does not depend on the speed of the machine running it.
+func waitForCondition(t *testing.T, timeout time.Duration, cond func() bool, desc string) {
+	t.Helper()
+	deadline := time.Now().Add(timeout)
+	for !cond() {
+		if time.Now().After(deadline) {
+			t.Fatalf("timed out after %v waiting for %s", timeout, desc)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
 func TestCleanupExpired_DeletesExpiredEntries(t *testing.T) {
 	db, tmpDir := setupTestDB(t)
 
@@ -217,16 +232,16 @@ func TestStartCleanupLoop_RunsPeriodically(t *testing.T) {
 
 	r.StartCleanupLoop(ctx, 100*time.Millisecond)
 
-	// Wait for at least one cleanup cycle
-	time.Sleep(300 * time.Millisecond)
+	// Wait for the cleanup loop to remove the expired entry
+	waitForCondition(t, 5*time.Second, func() bool {
+		return countEntries(t, db) == 0
+	}, "expired entry to be cleaned up")
 
-	if countEntries(t, db) != 0 {
-		t.Errorf("expected expired entry to be cleaned up, got %d entries", countEntries(t, db))
-	}
-
-	if _, err := os.Stat(expiredFile); !os.IsNotExist(err) {
-		t.Error("expected cache file to be deleted by cleanup loop")
-	}
+	// The cache file is removed right after the DB row, so wait for it separately
+	waitForCondition(t, 5*time.Second, func() bool {
+		_, err := os.Stat(expiredFile)
+		return os.IsNotExist(err)
+	}, "cache file to be deleted by cleanup loop")
 }
 
 func TestStartCleanupLoop_StopsOnContextCancel(t *testing.T) {
@@ -516,12 +531,10 @@ func TestStartCleanupLoop_RunsVacuumAfterDeletion(t *testing.T) {
 
 	r.StartCleanupLoop(ctx, 100*time.Millisecond)
 
-	// Wait for cleanup cycle to run
-	time.Sleep(400 * time.Millisecond)
-
-	if countEntries(t, db) != 0 {
-		t.Errorf("expected all entries cleaned up, got %d", countEntries(t, db))
-	}
+	// Wait for the cleanup loop to remove all expired entries
+	waitForCondition(t, 5*time.Second, func() bool {
+		return countEntries(t, db) == 0
+	}, "all expired entries to be cleaned up")
 
 	// Check that DB file shrank (VACUUM ran)
 	sizeAfterCleanup, err := os.Stat(dbPath)
